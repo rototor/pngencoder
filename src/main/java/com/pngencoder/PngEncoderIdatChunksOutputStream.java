@@ -73,7 +73,7 @@ class PngEncoderIdatChunksOutputStream extends FilterOutputStream {
         out.write(IDAT_BYTES);
         out.write(b, off, len);
         crc.reset();
-        crc.update(IDAT_BYTES);
+        crc.update(IDAT_BYTES, 0, b.length);
         crc.update(b, off, len);
         writeInt((int) crc.getValue());
     }
