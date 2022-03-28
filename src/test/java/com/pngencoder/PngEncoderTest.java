@@ -177,6 +177,26 @@ public class PngEncoderTest {
 	}
 
 	@Test
+	public void testpredictorEncodingCompareSize() throws IOException {
+		final BufferedImage bufferedImage = ImageIO
+				.read(Objects.requireNonNull(PngEncoderTest.class.getResourceAsStream("/png-encoder-logo.png")));
+
+		byte[] bytesPred1 = new PngEncoder().withBufferedImage(bufferedImage).withCompressionLevel(1)
+				.withPredictorEncoding(true).toBytes();
+		byte[] bytesPred9 = new PngEncoder().withBufferedImage(bufferedImage).withCompressionLevel(9)
+				.withPredictorEncoding(true).toBytes();
+		byte[] bytesBaseline1 = new PngEncoder().withBufferedImage(bufferedImage).withCompressionLevel(1).toBytes();
+		byte[] bytesBaseline9 = new PngEncoder().withBufferedImage(bufferedImage).withCompressionLevel(9).toBytes();
+
+		System.out.println("Baseline 1: " + bytesBaseline1.length);
+		System.out.println("Baseline 9: " + bytesBaseline9.length);
+		System.out.println("Preditor 1: " + bytesPred1.length);
+		System.out.println("Preditor 9: " + bytesPred9.length);
+		assertThat("Predictor must be smaller", bytesPred1.length < bytesBaseline1.length);
+		assertThat("Predictor must be smaller", bytesPred9.length < bytesBaseline9.length);
+	}
+
+	@Test
 	public void testEncodeWithSrgbAndReadMetadata() throws IOException {
 		int width = 3;
 		int height = 2;
