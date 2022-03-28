@@ -3,13 +3,14 @@ package com.pngencoder;
 import org.junit.jupiter.api.Test;
 
 import java.awt.image.BufferedImage;
+import java.io.IOException;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 
 public class PngEncoderScanlineUtilTest {
     @Test
-    public void getIntRgbSize() {
+    public void getIntRgbSize() throws IOException {
         final BufferedImage bufferedImage = PngEncoderTestUtil.createTestImage(PngEncoderBufferedImageType.TYPE_INT_RGB);
         final byte[] data = PngEncoderScanlineUtil.get(bufferedImage);
         final int actual = data.length;
@@ -18,7 +19,7 @@ public class PngEncoderScanlineUtilTest {
     }
 
     @Test
-    public void getIntArgbSize() {
+    public void getIntArgbSize() throws IOException {
         final BufferedImage bufferedImage = PngEncoderTestUtil.createTestImage(PngEncoderBufferedImageType.TYPE_INT_ARGB);
         final byte[] data = PngEncoderScanlineUtil.get(bufferedImage);
         final int actual = data.length;
@@ -27,36 +28,36 @@ public class PngEncoderScanlineUtilTest {
     }
 
     @Test
-    public void getIntBgr() {
+    public void getIntBgr() throws IOException {
         assertThatScanlineOfTestImageEqualsIntRgbOrArgb(PngEncoderBufferedImageType.TYPE_INT_BGR, false);
     }
 
     @Test
-    public void get3ByteBgr() {
+    public void get3ByteBgr() throws IOException {
         assertThatScanlineOfTestImageEqualsIntRgbOrArgb(PngEncoderBufferedImageType.TYPE_3BYTE_BGR, false);
     }
 
     @Test
-    public void get4ByteAbgr() {
+    public void get4ByteAbgr() throws IOException {
         assertThatScanlineOfTestImageEqualsIntRgbOrArgb(PngEncoderBufferedImageType.TYPE_4BYTE_ABGR, true);
     }
 
     @Test
-    public void getByteGray() {
+    public void getByteGray() throws IOException {
         assertThatScanlineOfTestImageEqualsIntRgbOrArgb(PngEncoderBufferedImageType.TYPE_BYTE_GRAY, false);
     }
 
     @Test
-    public void getUshortGray() {
+    public void getUshortGray() throws IOException {
         assertThatScanlineOfTestImageEqualsIntRgbOrArgb(PngEncoderBufferedImageType.TYPE_USHORT_GRAY, false);
     }
 
     @Test
-    public void getBinary() {
+    public void getBinary() throws IOException {
         assertThatScanlineOfTestImageEqualsIntRgbOrArgb(PngEncoderBufferedImageType.TYPE_BYTE_BINARY, false);
     }
 
-    private void assertThatScanlineOfTestImageEqualsIntRgbOrArgb(PngEncoderBufferedImageType type, boolean alpha) {
+    private void assertThatScanlineOfTestImageEqualsIntRgbOrArgb(PngEncoderBufferedImageType type, boolean alpha) throws IOException {
         final BufferedImage bufferedImage = PngEncoderTestUtil.createTestImage(type);
         final BufferedImage bufferedImageEnsured = PngEncoderBufferedImageConverter.ensureType(bufferedImage, alpha ? PngEncoderBufferedImageType.TYPE_INT_ARGB : PngEncoderBufferedImageType.TYPE_INT_RGB);
         final byte[] actual = PngEncoderScanlineUtil.get(bufferedImage);

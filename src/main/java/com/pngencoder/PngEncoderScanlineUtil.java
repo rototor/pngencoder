@@ -3,13 +3,14 @@ package com.pngencoder;
 import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.awt.image.WritableRaster;
+import java.io.IOException;
 
 class PngEncoderScanlineUtil {
 	private PngEncoderScanlineUtil() {
 	}
 
 	static abstract class AbstractPNGLineConsumer {
-		abstract void consume(byte[] lineBuffer, byte[] prevLine);
+		abstract void consume(byte[] lineBuffer, byte[] prevLine) throws IOException;
 	}
 
 	static class ByteBufferPNGLineConsumer extends AbstractPNGLineConsumer {
@@ -26,7 +27,7 @@ class PngEncoderScanlineUtil {
 		}
 	}
 
-	static byte[] get(BufferedImage bufferedImage) {
+	static byte[] get(BufferedImage bufferedImage) throws IOException {
 		final int width = bufferedImage.getWidth();
 		final int height = bufferedImage.getHeight();
 
@@ -77,7 +78,7 @@ class PngEncoderScanlineUtil {
 		}
 	}
 
-	static void stream(BufferedImage bufferedImage, int yStart, int height, AbstractPNGLineConsumer consumer) {
+	static void stream(BufferedImage bufferedImage, int yStart, int height, AbstractPNGLineConsumer consumer) throws IOException {
 		final int width = bufferedImage.getWidth();
 		final int imageHeight = bufferedImage.getHeight();
 		assert (height <= imageHeight - yStart);
@@ -123,7 +124,7 @@ class PngEncoderScanlineUtil {
 		}
 	}
 
-	static byte[] getIntRgb(int[] elements, int width, int height) {
+	static byte[] getIntRgb(int[] elements, int width, int height) throws IOException {
 		final int channels = 3;
 		final int rowByteSize = 1 + channels * width;
 		ByteBufferPNGLineConsumer consumer = new ByteBufferPNGLineConsumer(rowByteSize * height);
@@ -132,7 +133,7 @@ class PngEncoderScanlineUtil {
 
 	}
 
-	static void getIntRgb(int[] elements, int yStart, int width, int height, AbstractPNGLineConsumer consumer) {
+	static void getIntRgb(int[] elements, int yStart, int width, int height, AbstractPNGLineConsumer consumer) throws IOException {
 		final int channels = 3;
 		final int rowByteSize = 1 + channels * width;
 		byte[] currLine = new byte[rowByteSize];
@@ -141,8 +142,7 @@ class PngEncoderScanlineUtil {
 		for (int y = yStart; y < height; y++) {
 			int yOffset = y * width;
 
-			int rowByteOffset = 0;
-			currLine[rowByteOffset++] = 0;
+			int rowByteOffset = 1;
 
 			for (int x = 0; x < width; x++) {
 				final int element = elements[yOffset + x];
@@ -159,7 +159,7 @@ class PngEncoderScanlineUtil {
 		}
 	}
 
-	static byte[] getIntArgb(int[] elements, int width, int height) {
+	static byte[] getIntArgb(int[] elements, int width, int height) throws IOException {
 		final int channels = 4;
 		final int rowByteSize = 1 + channels * width;
 		ByteBufferPNGLineConsumer consumer = new ByteBufferPNGLineConsumer(rowByteSize * height);
@@ -167,7 +167,7 @@ class PngEncoderScanlineUtil {
 		return consumer.bytes;
 	}
 
-	static void getIntArgb(int[] elements, int yStart, int width, int height, AbstractPNGLineConsumer consumer) {
+	static void getIntArgb(int[] elements, int yStart, int width, int height, AbstractPNGLineConsumer consumer) throws IOException {
 		final int channels = 4;
 		final int rowByteSize = 1 + channels * width;
 		byte[] currLine = new byte[rowByteSize];
@@ -176,8 +176,7 @@ class PngEncoderScanlineUtil {
 		for (int y = yStart; y < height; y++) {
 			int yOffset = y * width;
 
-			int rowByteOffset = 0;
-			currLine[rowByteOffset++] = 0;
+			int rowByteOffset = 1;
 			for (int x = 0; x < width; x++) {
 				final int element = elements[yOffset + x];
 				currLine[rowByteOffset++] = (byte) (element >> 16); // R
@@ -194,7 +193,7 @@ class PngEncoderScanlineUtil {
 		}
 	}
 
-	static byte[] getIntRgb(WritableRaster imageRaster, int width, int height) {
+	static byte[] getIntRgb(WritableRaster imageRaster, int width, int height) throws IOException {
 		final int channels = 3;
 		final int rowByteSize = 1 + channels * width;
 		ByteBufferPNGLineConsumer consumer = new ByteBufferPNGLineConsumer(rowByteSize * height);
@@ -203,7 +202,7 @@ class PngEncoderScanlineUtil {
 	}
 
 	static void getIntRgb(WritableRaster imageRaster, int yStart, int width, int height,
-			AbstractPNGLineConsumer consumer) {
+			AbstractPNGLineConsumer consumer) throws IOException {
 		final int channels = 3;
 		final int rowByteSize = 1 + channels * width;
 		byte[] currLine = new byte[rowByteSize];
@@ -212,8 +211,7 @@ class PngEncoderScanlineUtil {
 		for (int y = yStart; y < height; y++) {
 			imageRaster.getDataElements(0, y, width, 1, elements);
 
-			int rowByteOffset = 0;
-			currLine[rowByteOffset++] = 0;
+			int rowByteOffset = 1;
 			for (int x = 0; x < width; x++) {
 				final int element = elements[x];
 				currLine[rowByteOffset++] = (byte) (element >> 16); // R
@@ -232,7 +230,7 @@ class PngEncoderScanlineUtil {
 
 	}
 
-	static byte[] getIntArgb(WritableRaster imageRaster, int width, int height) {
+	static byte[] getIntArgb(WritableRaster imageRaster, int width, int height) throws IOException {
 		final int channels = 4;
 		final int rowByteSize = 1 + channels * width;
 		ByteBufferPNGLineConsumer consumer = new ByteBufferPNGLineConsumer(rowByteSize * height);
@@ -241,7 +239,7 @@ class PngEncoderScanlineUtil {
 	}
 
 	static void getIntArgb(WritableRaster imageRaster, int yStart, int width, int height,
-			AbstractPNGLineConsumer consumer) {
+			AbstractPNGLineConsumer consumer) throws IOException {
 		final int channels = 4;
 		final int rowByteSize = 1 + channels * width;
 		final int[] elements = new int[width];
@@ -251,8 +249,7 @@ class PngEncoderScanlineUtil {
 		for (int y = yStart; y < height; y++) {
 			imageRaster.getDataElements(0, y, width, 1, elements);
 
-			int rowByteOffset = 0;
-			currLine[rowByteOffset++] = 0;
+			int rowByteOffset = 1;
 
 			for (int x = 0; x < width; x++) {
 				final int element = elements[x];
@@ -272,7 +269,7 @@ class PngEncoderScanlineUtil {
 		}
 	}
 
-	static byte[] getIntBgr(WritableRaster imageRaster, int width, int height) {
+	static byte[] getIntBgr(WritableRaster imageRaster, int width, int height) throws IOException {
 		final int channels = 3;
 		final int rowByteSize = 1 + channels * width;
 		ByteBufferPNGLineConsumer consumer = new ByteBufferPNGLineConsumer(rowByteSize * height);
@@ -282,7 +279,7 @@ class PngEncoderScanlineUtil {
 	}
 
 	static void getIntBgr(WritableRaster imageRaster, int yStart, int width, int height,
-			AbstractPNGLineConsumer consumer) {
+			AbstractPNGLineConsumer consumer) throws IOException {
 		final int channels = 3;
 		final int rowByteSize = 1 + channels * width;
 		final int[] elements = new int[width];
@@ -292,8 +289,7 @@ class PngEncoderScanlineUtil {
 		for (int y = yStart; y < height; y++) {
 			imageRaster.getDataElements(0, y, width, 1, elements);
 
-			int rowByteOffset = 0;
-			currLine[rowByteOffset++] = 0;
+			int rowByteOffset = 1;
 
 			for (int x = 0; x < width; x++) {
 				final int element = elements[x];
@@ -310,7 +306,7 @@ class PngEncoderScanlineUtil {
 		}
 	}
 
-	static byte[] get3ByteBgr(WritableRaster imageRaster, int width, int height) {
+	static byte[] get3ByteBgr(WritableRaster imageRaster, int width, int height) throws IOException {
 		final int channels = 3;
 		final int rowByteSize = 1 + channels * width;
 		ByteBufferPNGLineConsumer consumer = new ByteBufferPNGLineConsumer(rowByteSize * height);
@@ -319,7 +315,7 @@ class PngEncoderScanlineUtil {
 	}
 
 	static void get3ByteBgr(WritableRaster imageRaster, int yStart, int width, int height,
-			AbstractPNGLineConsumer consumer) {
+			AbstractPNGLineConsumer consumer) throws IOException {
 		final int channels = 3;
 		final int rowByteSize = 1 + channels * width;
 		final byte[] elements = new byte[width * 3];
@@ -339,7 +335,7 @@ class PngEncoderScanlineUtil {
 		}
 	}
 
-	static byte[] get4ByteAbgr(WritableRaster imageRaster, int width, int height) {
+	static byte[] get4ByteAbgr(WritableRaster imageRaster, int width, int height) throws IOException {
 		final int channels = 4;
 		final int rowByteSize = 1 + channels * width;
 		ByteBufferPNGLineConsumer consumer = new ByteBufferPNGLineConsumer(rowByteSize * height);
@@ -348,7 +344,7 @@ class PngEncoderScanlineUtil {
 	}
 
 	static void get4ByteAbgr(WritableRaster imageRaster, int yStart, int width, int height,
-			AbstractPNGLineConsumer consumer) {
+			AbstractPNGLineConsumer consumer) throws IOException {
 		final int channels = 4;
 		final int rowByteSize = 1 + channels * width;
 		final byte[] elements = new byte[width * 4];
@@ -368,7 +364,7 @@ class PngEncoderScanlineUtil {
 		}
 	}
 
-	static byte[] getByteGray(WritableRaster imageRaster, int width, int height) {
+	static byte[] getByteGray(WritableRaster imageRaster, int width, int height) throws IOException {
 		final int channels = 3;
 		final int rowByteSize = 1 + channels * width;
 		ByteBufferPNGLineConsumer consumer = new ByteBufferPNGLineConsumer(rowByteSize * height);
@@ -378,7 +374,7 @@ class PngEncoderScanlineUtil {
 	}
 
 	static void getByteGray(WritableRaster imageRaster, int yStart, int width, int height,
-			AbstractPNGLineConsumer consumer) {
+			AbstractPNGLineConsumer consumer) throws IOException {
 		final int channels = 3;
 		final int rowByteSize = 1 + channels * width;
 		final byte[] elements = new byte[width];
@@ -387,8 +383,7 @@ class PngEncoderScanlineUtil {
 		for (int y = yStart; y < height; y++) {
 			imageRaster.getDataElements(0, y, width, 1, elements);
 
-			int rowByteOffset = 0;
-			currLine[rowByteOffset++] = 0;
+			int rowByteOffset = 1;
 
 			for (int x = 0; x < width; x++) {
 				byte grayColorValue = elements[x];
@@ -405,7 +400,7 @@ class PngEncoderScanlineUtil {
 		}
 	}
 
-	static byte[] getUshortGray(WritableRaster imageRaster, int width, int height) {
+	static byte[] getUshortGray(WritableRaster imageRaster, int width, int height) throws IOException {
 		final int channels = 3;
 		final int rowByteSize = 1 + channels * width;
 		ByteBufferPNGLineConsumer consumer = new ByteBufferPNGLineConsumer(rowByteSize * height);
@@ -414,7 +409,7 @@ class PngEncoderScanlineUtil {
 	}
 
 	static void getUshortGray(WritableRaster imageRaster, int yStart, int width, int height,
-			AbstractPNGLineConsumer consumer) {
+			AbstractPNGLineConsumer consumer) throws IOException {
 
 		final int channels = 3;
 		final int rowByteSize = 1 + channels * width;
@@ -425,8 +420,7 @@ class PngEncoderScanlineUtil {
 		for (int y = yStart; y < height; y++) {
 			imageRaster.getDataElements(0, y, width, 1, elements);
 
-			int rowByteOffset = 0;
-			currLine[rowByteOffset++] = 0;
+			int rowByteOffset = 1;
 
 			for (int x = 0; x < width; x++) {
 				byte grayColorValue = (byte) (elements[x] >> 8);
