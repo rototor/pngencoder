@@ -33,24 +33,24 @@ public class PngEncoder {
 	private enum PredictorEncoding {
 		DEFAULT {
 			@Override
-			boolean isEnabled(int compressionLevel) {
-				return compressionLevel >= 6;
+			boolean isEnabled(int compressionLevel, boolean multiThreadedCompressionEnabled) {
+				return compressionLevel >= 6 && !multiThreadedCompressionEnabled;
 			}
 		},
 		EXPLICIT_ENABLED {
 			@Override
-			boolean isEnabled(int compressionLevel) {
+			boolean isEnabled(int compressionLevel, boolean multiThreadedCompressionEnabled) {
 				return true;
 			}
 		},
 		EXPLICIT_DISABLED {
 			@Override
-			boolean isEnabled(int compressionLevel) {
+			boolean isEnabled(int compressionLevel, boolean multiThreadedCompressionEnabled) {
 				return false;
 			}
 		};
 
-		abstract boolean isEnabled(int compressionLevel);
+		abstract boolean isEnabled(int compressionLevel, boolean multiThreadedCompressionEnabled);
 
 	}
 
@@ -149,7 +149,7 @@ public class PngEncoder {
 	}
 
 	public boolean isPredictorEncodingEnabled() {
-		return predictorEncoding.isEnabled(compressionLevel);
+		return predictorEncoding.isEnabled(compressionLevel, multiThreadedCompressionEnabled);
 	}
 
 	public int getCompressionLevel() {
