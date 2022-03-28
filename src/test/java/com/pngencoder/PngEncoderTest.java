@@ -9,6 +9,7 @@ import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.util.Iterator;
+import java.util.Objects;
 import java.util.stream.IntStream;
 
 import javax.imageio.ImageIO;
@@ -151,6 +152,20 @@ public class PngEncoderTest {
 	public void testPredictorEncoding() throws IOException {
 		final BufferedImage bufferedImage = PngEncoderTestUtil
 				.createTestImage(PngEncoderBufferedImageType.TYPE_INT_ARGB);
+
+		byte[] bytes = new PngEncoder().withBufferedImage(bufferedImage).withCompressionLevel(1)
+				.withPredictorEncoding(true).toBytes();
+
+		BufferedImage backReadImage = readWithImageIO(bytes);
+		int[] actual = toIntArgb(backReadImage);
+		int[] expected = toIntArgb(bufferedImage);
+		assertThat(actual, is(expected));
+	}
+
+	@Test
+	public void testPredictorEncodingWithImage() throws IOException {
+		final BufferedImage bufferedImage = ImageIO
+				.read(Objects.requireNonNull(PngEncoderTest.class.getResourceAsStream("/png-encoder-logo.png")));
 
 		byte[] bytes = new PngEncoder().withBufferedImage(bufferedImage).withCompressionLevel(1)
 				.withPredictorEncoding(true).toBytes();

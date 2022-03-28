@@ -10,7 +10,7 @@ class PngEncoderScanlineUtil {
 	}
 
 	static abstract class AbstractPNGLineConsumer {
-		abstract void consume(byte[] lineBuffer, byte[] prevLine) throws IOException;
+		abstract void consume(byte[] currRow, byte[] prevRow) throws IOException;
 	}
 
 	static class ByteBufferPNGLineConsumer extends AbstractPNGLineConsumer {
@@ -21,9 +21,9 @@ class PngEncoderScanlineUtil {
 			bytes = new byte[byteCount];
 		}
 
-		void consume(byte[] lineBuffer, byte[] prevLine) {
-			System.arraycopy(lineBuffer, 0, bytes, currentOffset, lineBuffer.length);
-			currentOffset += lineBuffer.length;
+		void consume(byte[] currRow, byte[] prevRow) {
+			System.arraycopy(currRow, 0, bytes, currentOffset, currRow.length);
+			currentOffset += currRow.length;
 		}
 	}
 

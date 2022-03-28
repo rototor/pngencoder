@@ -8,21 +8,25 @@ import java.io.OutputStream;
 
 class PngEncoderPredictor {
 
+	int bytesPerPixel;
+
 	public void encodeImage(BufferedImage image, int yStart, int height, OutputStream outputStream) throws IOException {
+		bytesPerPixel = image.getColorModel().hasAlpha() ? 4 : 3;
 		PngEncoderScanlineUtil.stream(image, yStart, height, new AbstractPNGLineConsumer() {
 			@Override
-			void consume(byte[] lineBuffer, byte[] prevLine) throws IOException {
-				dataRawRowNone = lineBuffer;
+			void consume(byte[] currRow, byte[] prevRow) throws IOException {
+				dataRawRowNone = currRow;
 				if (dataRawRowSub == null) {
-					dataRawRowSub = new byte[lineBuffer.length];
-					dataRawRowUp = new byte[lineBuffer.length];
-					dataRawRowAverage = new byte[lineBuffer.length];
-					dataRawRowPaeth = new byte[lineBuffer.length];
+					dataRawRowSub = new byte[currRow.length];
+					dataRawRowUp = new byte[currRow.length];
+					dataRawRowAverage = new byte[currRow.length];
+					dataRawRowPaeth = new byte[currRow.length];
 
 					dataRawRowSub[0] = 1;
 					dataRawRowUp[0] = 2;
 					dataRawRowAverage[0] = 3;
 					dataRawRowPaeth[0] = 4;
+
 				}
 
 				// c | b
@@ -30,16 +34,21 @@ class PngEncoderPredictor {
 				// a | x
 				//
 				// x => current pixel
+				int bLen = currRow.length;
+				assert currRow.length == prevRow.length;
+				assert currRow[0] == 0;
+				assert prevRow[0] == 0;
 
-				final int bLen = lineBuffer.length;
-				assert lineBuffer.length == prevLine.length;
-
+				int bpp = bytesPerPixel;
+				int a = 0;
+				int c = 0;
 				for (int i = 1; i < bLen; i++) {
-					int a = lineBuffer[i - 1] & 0xFF;
-					int x = lineBuffer[i] & 0xFF;
-					int c = prevLine[i - 1] & 0xFF;
-					int b = prevLine[i] & 0xFF;
-					dataRawRowNone[i] = (byte) x;
+					int x = currRow[i] & 0xFF;
+					int b = prevRow[i] & 0xFF;
+					if (i > bpp) {
+						a = currRow[i - bpp] & 0xFF;
+						c = prevRow[i - bpp] & 0xFF;
+					}
 					dataRawRowSub[i] = pngFilterSub(x, a);
 					dataRawRowUp[i] = pngFilterUp(x, b);
 					dataRawRowAverage[i] = pngFilterAverage(x, a, b);
@@ -64,7 +73,6 @@ class PngEncoderPredictor {
 		long estCompressSumUp = estCompressSum(dataRawRowUp);
 		long estCompressSumAvg = estCompressSum(dataRawRowAverage);
 		long estCompressSumPaeth = estCompressSum(dataRawRowPaeth);
-		if(true )return rowToWrite;
 		if (estCompressSum > estCompressSumSub) {
 			rowToWrite = dataRawRowSub;
 			estCompressSum = estCompressSumSub;
