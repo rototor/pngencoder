@@ -155,10 +155,6 @@ public class PngEncoderTest {
 		byte[] bytes = new PngEncoder().withBufferedImage(bufferedImage).withCompressionLevel(1)
 				.withPredictorEncoding(true).toBytes();
 
-		/*
-		 * We use always the encoder, as - for some reason - the gammut is broken when
-		 * reading the image back in...
-		 */
 		BufferedImage backReadImage = readWithImageIO(bytes);
 		int[] actual = toIntArgb(backReadImage);
 		int[] expected = toIntArgb(bufferedImage);
