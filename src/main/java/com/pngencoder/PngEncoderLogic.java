@@ -1,5 +1,7 @@
 package com.pngencoder;
 
+import com.pngencoder.PngEncoderScanlineUtil.AbstractPNGLineConsumer;
+
 import java.awt.Transparency;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
@@ -81,20 +83,25 @@ class PngEncoderLogic {
 			deflaterOutputStream.finish();
 			deflaterOutputStream.flush();
 		} else {
-			final byte[] scanlineBytes = PngEncoderScanlineUtil.get(bufferedImage);
+			int estimatedBytes = bufferedImage.getWidth()*bufferedImage.getHeight() * (bufferedImage.getColorModel().hasAlpha() ? 4 : 3);
 
-			final int segmentMaxLengthOriginal = PngEncoderDeflaterOutputStream
-					.getSegmentMaxLengthOriginal(scanlineBytes.length);
+			final int segmentMaxLengthOriginal = PngEncoderDeflaterOutputStream.getSegmentMaxLengthOriginal(estimatedBytes);
 
-			if (scanlineBytes.length <= segmentMaxLengthOriginal || !multiThreadedCompressionEnabled) {
+			if (estimatedBytes <= segmentMaxLengthOriginal || !multiThreadedCompressionEnabled) {
 				Deflater deflater = new Deflater(compressionLevel);
 				DeflaterOutputStream deflaterOutputStream = new DeflaterOutputStream(idatChunksOutputStream, deflater);
-				deflaterOutputStream.write(scanlineBytes);
+				PngEncoderScanlineUtil.stream(bufferedImage, 0, bufferedImage.getHeight(), new AbstractPNGLineConsumer() {
+					@Override
+					void consume(byte[] currRow, byte[] prevRow) throws IOException {
+						deflaterOutputStream.write(currRow);
+					}
+				});
 				deflaterOutputStream.finish();
 				deflaterOutputStream.flush();
 			} else {
+				final byte[] scanlineBytes = PngEncoderScanlineUtil.get(bufferedImage);
 				PngEncoderDeflaterOutputStream deflaterOutputStream = new PngEncoderDeflaterOutputStream(
-						idatChunksOutputStream, compressionLevel, segmentMaxLengthOriginal);
+						  idatChunksOutputStream, compressionLevel, segmentMaxLengthOriginal);
 				deflaterOutputStream.write(scanlineBytes);
 				deflaterOutputStream.finish();
 			}

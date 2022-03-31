@@ -9,6 +9,11 @@ class PngEncoderScanlineUtil {
 	private PngEncoderScanlineUtil() {
 	}
 
+	/**
+	 * Consumer for the image rows as bytes. Every row has the predictor marker as
+	 * first byte (with 0 for no predictor encoding), after that all image bytes
+	 * follow.
+	 */
 	static abstract class AbstractPNGLineConsumer {
 		abstract void consume(byte[] currRow, byte[] prevRow) throws IOException;
 	}
@@ -78,7 +83,8 @@ class PngEncoderScanlineUtil {
 		}
 	}
 
-	static void stream(BufferedImage bufferedImage, int yStart, int height, AbstractPNGLineConsumer consumer) throws IOException {
+	static void stream(BufferedImage bufferedImage, int yStart, int height, AbstractPNGLineConsumer consumer)
+			throws IOException {
 		final int width = bufferedImage.getWidth();
 		final int imageHeight = bufferedImage.getHeight();
 		assert (height <= imageHeight - yStart);
@@ -133,7 +139,8 @@ class PngEncoderScanlineUtil {
 
 	}
 
-	static void getIntRgb(int[] elements, int yStart, int width, int height, AbstractPNGLineConsumer consumer) throws IOException {
+	static void getIntRgb(int[] elements, int yStart, int width, int height, AbstractPNGLineConsumer consumer)
+			throws IOException {
 		final int channels = 3;
 		final int rowByteSize = 1 + channels * width;
 		byte[] currLine = new byte[rowByteSize];
@@ -167,7 +174,8 @@ class PngEncoderScanlineUtil {
 		return consumer.bytes;
 	}
 
-	static void getIntArgb(int[] elements, int yStart, int width, int height, AbstractPNGLineConsumer consumer) throws IOException {
+	static void getIntArgb(int[] elements, int yStart, int width, int height, AbstractPNGLineConsumer consumer)
+			throws IOException {
 		final int channels = 4;
 		final int rowByteSize = 1 + channels * width;
 		byte[] currLine = new byte[rowByteSize];
