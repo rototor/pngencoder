@@ -2,6 +2,8 @@ package com.pngencoder;
 
 import java.awt.*;
 import java.awt.image.BufferedImage;
+import java.awt.image.DataBufferByte;
+import java.awt.image.PixelInterleavedSampleModel;
 import java.awt.image.WritableRaster;
 import java.io.IOException;
 
@@ -358,17 +360,38 @@ class PngEncoderScanlineUtil {
 		final byte[] elements = new byte[width * 4];
 		byte[] currLine = new byte[rowByteSize];
 		byte[] prevLine = new byte[rowByteSize];
-		for (int y = yStart; y < height; y++) {
-			imageRaster.getDataElements(0, y, width, 1, elements);
+		DataBufferByte dataBufferByte = (DataBufferByte) imageRaster.getDataBuffer();
+		if (imageRaster.getSampleModel() instanceof PixelInterleavedSampleModel) {
+			PixelInterleavedSampleModel sampleModel = (PixelInterleavedSampleModel) imageRaster.getSampleModel();
+			byte[] rawBytes = dataBufferByte.getData();
+			int scanlineStride = sampleModel.getScanlineStride();
+			int pixelStride = sampleModel.getPixelStride();
 
-			currLine[0] = 0;
-			System.arraycopy(elements, 0, currLine, 1, elements.length);
-			consumer.consume(currLine, prevLine);
-			{
-				byte[] b = currLine;
-				currLine = prevLine;
-				prevLine = b;
+			assert pixelStride == 4;
+			int linePtr = 0;
+			for (int y = yStart; y < height; y++) {
+				int pixelPtr = linePtr;
+				int writePtr = 1;
+				for (int x = 0; x < width; x++) {
+					byte a = rawBytes[pixelPtr++];
+					byte b = rawBytes[pixelPtr++];
+					byte g = rawBytes[pixelPtr++];
+					byte r = rawBytes[pixelPtr++];
+					currLine[writePtr++] = r;
+					currLine[writePtr++] = g;
+					currLine[writePtr++] = b;
+					currLine[writePtr++] = a;
+				}
+				linePtr += scanlineStride;
+				consumer.consume(currLine, prevLine);
+				{
+					byte[] b = currLine;
+					currLine = prevLine;
+					prevLine = b;
+				}
 			}
+		} else {
+			throw new IllegalStateException("4ByteAbgr must have a PixelInterleavedSampleModel");
 		}
 	}
 
