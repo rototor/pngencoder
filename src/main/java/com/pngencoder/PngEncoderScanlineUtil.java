@@ -1,6 +1,7 @@
 package com.pngencoder;
 
 import java.awt.*;
+import java.awt.color.ColorSpace;
 import java.awt.image.*;
 import java.io.IOException;
 
@@ -66,11 +67,11 @@ class PngEncoderScanlineUtil {
 		// TODO: TYPE_USHORT_555_RGB
 
 		if (type == PngEncoderBufferedImageType.TYPE_BYTE_GRAY) {
-			return getByteGray(raster, width, height);
+			return getByteGray(bufferedImage, width, height);
 		}
 
 		if (type == PngEncoderBufferedImageType.TYPE_USHORT_GRAY) {
-			return getUshortGray(raster, width, height);
+			return getUshortGray(bufferedImage, width, height);
 		}
 
 		// Fallback for unsupported type.
@@ -113,10 +114,10 @@ class PngEncoderScanlineUtil {
 		// TODO: TYPE_USHORT_565_RGB
 		// TODO: TYPE_USHORT_555_RGB
 		case TYPE_BYTE_GRAY:
-			getByteGray(raster, yStart, width, height, consumer);
+			getByteGray(bufferedImage, yStart, width, height, consumer);
 			break;
 		case TYPE_USHORT_GRAY:
-			getUshortGray(raster, yStart, width, height, consumer);
+			getUshortGray(bufferedImage, yStart, width, height, consumer);
 			break;
 		default:
 			// Fallback for unsupported type.
@@ -224,7 +225,8 @@ class PngEncoderScanlineUtil {
 			assert sampleModel.getBitOffsets()[2] == 0;
 			int[] rawInts = ((DataBufferInt) imageRaster.getDataBuffer()).getData();
 
-			int linePtr = scanlineStride * yStart;
+			int linePtr = scanlineStride * (yStart - imageRaster.getSampleModelTranslateY())
+					- imageRaster.getSampleModelTranslateX();
 			for (int y = yStart; y < height; y++) {
 				int pixelPtr = linePtr;
 
@@ -276,7 +278,9 @@ class PngEncoderScanlineUtil {
 			assert sampleModel.getBitOffsets()[3] == 24;
 			int[] rawInts = ((DataBufferInt) imageRaster.getDataBuffer()).getData();
 
-			int linePtr = scanlineStride * yStart;
+			int linePtr = scanlineStride * (yStart - imageRaster.getSampleModelTranslateY())
+					- imageRaster.getSampleModelTranslateX();
+
 			for (int y = yStart; y < height; y++) {
 				int pixelPtr = linePtr;
 
@@ -328,7 +332,8 @@ class PngEncoderScanlineUtil {
 			assert sampleModel.getBitOffsets()[2] == 16;
 			int[] rawInts = ((DataBufferInt) imageRaster.getDataBuffer()).getData();
 
-			int linePtr = scanlineStride * yStart;
+			int linePtr = scanlineStride * (yStart - imageRaster.getSampleModelTranslateY())
+					- imageRaster.getSampleModelTranslateX();
 			for (int y = yStart; y < height; y++) {
 				int pixelPtr = linePtr;
 
@@ -376,7 +381,9 @@ class PngEncoderScanlineUtil {
 			int pixelStride = sampleModel.getPixelStride();
 
 			assert pixelStride == 3;
-			int linePtr = scanlineStride * yStart;
+			int linePtr = scanlineStride * (yStart - imageRaster.getSampleModelTranslateY())
+					- imageRaster.getSampleModelTranslateX() * pixelStride;
+
 			for (int y = yStart; y < height; y++) {
 				int pixelPtr = linePtr;
 				int writePtr = 1;
@@ -423,7 +430,8 @@ class PngEncoderScanlineUtil {
 			int pixelStride = sampleModel.getPixelStride();
 
 			assert pixelStride == 4;
-			int linePtr = scanlineStride * yStart;
+			int linePtr = scanlineStride * (yStart - imageRaster.getSampleModelTranslateY())
+					- imageRaster.getSampleModelTranslateX() * pixelStride;
 			for (int y = yStart; y < height; y++) {
 				int pixelPtr = linePtr;
 				int writePtr = 1;
@@ -450,16 +458,20 @@ class PngEncoderScanlineUtil {
 		}
 	}
 
-	static byte[] getByteGray(WritableRaster imageRaster, int width, int height) throws IOException {
+	static byte[] getByteGray(BufferedImage image, int width, int height) throws IOException {
 		final int channels = 3;
 		final int rowByteSize = 1 + channels * width;
 		ByteBufferPNGLineConsumer consumer = new ByteBufferPNGLineConsumer(rowByteSize * height);
-		getByteGray(imageRaster, 0, width, height, consumer);
+		getByteGray(image, 0, width, height, consumer);
 		return consumer.bytes;
 	}
 
-	static void getByteGray(WritableRaster imageRaster, int yStart, int width, int height,
-			AbstractPNGLineConsumer consumer) throws IOException {
+	static void getByteGray(BufferedImage image, int yStart, int width, int height, AbstractPNGLineConsumer consumer)
+			throws IOException {
+		WritableRaster imageRaster = image.getRaster();
+		float[] convertValue = new float[1];
+		ColorSpace colorSpace = image.getColorModel().getColorSpace();
+
 		final int channels = 3;
 		final int rowByteSize = 1 + channels * width;
 		byte[] currLine = new byte[rowByteSize];
@@ -473,12 +485,15 @@ class PngEncoderScanlineUtil {
 			int pixelStride = sampleModel.getPixelStride();
 
 			assert pixelStride == 1;
-			int linePtr = scanlineStride * yStart;
+			int linePtr = scanlineStride * (yStart - imageRaster.getSampleModelTranslateY())
+					- imageRaster.getSampleModelTranslateX() * pixelStride;
 			for (int y = yStart; y < height; y++) {
 				int pixelPtr = linePtr;
 				int writePtr = 1;
 				for (int x = 0; x < width; x++) {
-					byte grayColorValue = rawBytes[pixelPtr++];
+					byte grayColorValueRaw = rawBytes[pixelPtr++];
+					convertValue[0] = ((float) (grayColorValueRaw & 0xFF)) / 255f;
+					byte grayColorValue = (byte) ((int) (colorSpace.toRGB(convertValue)[0] * 255f + 0.5f));
 					currLine[writePtr++] = grayColorValue;
 					currLine[writePtr++] = grayColorValue;
 					currLine[writePtr++] = grayColorValue;
@@ -496,16 +511,21 @@ class PngEncoderScanlineUtil {
 		}
 	}
 
-	static byte[] getUshortGray(WritableRaster imageRaster, int width, int height) throws IOException {
+	static byte[] getUshortGray(BufferedImage image, int width, int height) throws IOException {
 		final int channels = 3;
 		final int rowByteSize = 1 + channels * width;
 		ByteBufferPNGLineConsumer consumer = new ByteBufferPNGLineConsumer(rowByteSize * height);
-		getUshortGray(imageRaster, 0, width, height, consumer);
+		getUshortGray(image, 0, width, height, consumer);
 		return consumer.bytes;
 	}
 
-	static void getUshortGray(WritableRaster imageRaster, int yStart, int width, int height,
-			AbstractPNGLineConsumer consumer) throws IOException {
+	static void getUshortGray(BufferedImage image, int yStart, int width, int height, AbstractPNGLineConsumer consumer)
+			throws IOException {
+		System.err.println("WARNING: TYPE_USHORT_GRAY is not really supported. Gamma is very off...");
+		WritableRaster imageRaster = image.getRaster();
+		float[] convertValue = new float[1];
+		ColorSpace colorSpace = image.getColorModel().getColorSpace();
+
 		final int channels = 3;
 		final int rowByteSize = 1 + channels * width;
 		byte[] currLine = new byte[rowByteSize];
@@ -514,17 +534,20 @@ class PngEncoderScanlineUtil {
 		DataBufferUShort dataBufferUShort = (DataBufferUShort) imageRaster.getDataBuffer();
 		if (imageRaster.getSampleModel() instanceof PixelInterleavedSampleModel) {
 			PixelInterleavedSampleModel sampleModel = (PixelInterleavedSampleModel) imageRaster.getSampleModel();
-			short[] rawBytes = dataBufferUShort.getData();
+			short[] rawShorts = dataBufferUShort.getData();
 			int scanlineStride = sampleModel.getScanlineStride();
 			int pixelStride = sampleModel.getPixelStride();
 
 			assert pixelStride == 1;
-			int linePtr = scanlineStride * yStart;
+			int linePtr = scanlineStride * (yStart - imageRaster.getSampleModelTranslateY())
+					- imageRaster.getSampleModelTranslateX() * pixelStride;
 			for (int y = yStart; y < height; y++) {
 				int pixelPtr = linePtr;
 				int writePtr = 1;
 				for (int x = 0; x < width; x++) {
-					byte grayColorValue = (byte) (rawBytes[pixelPtr++] >> 8);
+					short grayColorValueRaw = rawShorts[pixelPtr++];
+					convertValue[0] = ((float) (grayColorValueRaw & 0xFFFF)) / 32767.0f;
+					byte grayColorValue = (byte) (((int) (colorSpace.toRGB(convertValue)[0] * 32767.0f + 0.5f)) >> 8);
 					currLine[writePtr++] = grayColorValue;
 					currLine[writePtr++] = grayColorValue;
 					currLine[writePtr++] = grayColorValue;

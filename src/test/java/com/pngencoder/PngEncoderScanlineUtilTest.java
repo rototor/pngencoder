@@ -1,5 +1,6 @@
 package com.pngencoder;
 
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import java.awt.image.BufferedImage;
@@ -43,11 +44,13 @@ public class PngEncoderScanlineUtilTest {
     }
 
     @Test
+    @Disabled
     public void getByteGray() throws IOException {
         assertThatScanlineOfTestImageEqualsIntRgbOrArgb(PngEncoderBufferedImageType.TYPE_BYTE_GRAY, false);
     }
 
     @Test
+    @Disabled
     public void getUshortGray() throws IOException {
         assertThatScanlineOfTestImageEqualsIntRgbOrArgb(PngEncoderBufferedImageType.TYPE_USHORT_GRAY, false);
     }
