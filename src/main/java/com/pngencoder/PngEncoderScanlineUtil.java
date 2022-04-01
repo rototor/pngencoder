@@ -1,10 +1,7 @@
 package com.pngencoder;
 
 import java.awt.*;
-import java.awt.image.BufferedImage;
-import java.awt.image.DataBufferByte;
-import java.awt.image.PixelInterleavedSampleModel;
-import java.awt.image.WritableRaster;
+import java.awt.image.*;
 import java.io.IOException;
 
 class PngEncoderScanlineUtil {
@@ -217,25 +214,37 @@ class PngEncoderScanlineUtil {
 		final int rowByteSize = 1 + channels * width;
 		byte[] currLine = new byte[rowByteSize];
 		byte[] prevLine = new byte[rowByteSize];
-		final int[] elements = new int[width];
-		for (int y = yStart; y < height; y++) {
-			imageRaster.getDataElements(0, y, width, 1, elements);
 
-			int rowByteOffset = 1;
-			for (int x = 0; x < width; x++) {
-				final int element = elements[x];
-				currLine[rowByteOffset++] = (byte) (element >> 16); // R
-				currLine[rowByteOffset++] = (byte) (element >> 8); // G
-				currLine[rowByteOffset++] = (byte) element; // B
+		if (imageRaster.getSampleModel() instanceof SinglePixelPackedSampleModel) {
+			SinglePixelPackedSampleModel sampleModel = (SinglePixelPackedSampleModel) imageRaster.getSampleModel();
+			int scanlineStride = sampleModel.getScanlineStride();
+			assert sampleModel.getNumBands() == 3;
+			assert sampleModel.getBitOffsets()[0] == 16;
+			assert sampleModel.getBitOffsets()[1] == 8;
+			assert sampleModel.getBitOffsets()[2] == 0;
+			int[] rawInts = ((DataBufferInt) imageRaster.getDataBuffer()).getData();
+
+			for (int y = yStart; y < height; y++) {
+				int pixelPtr = y * scanlineStride;
+
+				int rowByteOffset = 1;
+				for (int x = 0; x < width; x++) {
+					final int element = rawInts[pixelPtr++];
+					currLine[rowByteOffset++] = (byte) (element >> 16); // R
+					currLine[rowByteOffset++] = (byte) (element >> 8); // G
+					currLine[rowByteOffset++] = (byte) element; // B
+				}
+
+				consumer.consume(currLine, prevLine);
+
+				{
+					byte[] b = currLine;
+					currLine = prevLine;
+					prevLine = b;
+				}
 			}
-
-			consumer.consume(currLine, prevLine);
-
-			{
-				byte[] b = currLine;
-				currLine = prevLine;
-				prevLine = b;
-			}
+		} else {
+			throw new IllegalStateException("TYPE_INT_RGB must have a SinglePixelPackedSampleModel");
 		}
 
 	}
@@ -252,30 +261,41 @@ class PngEncoderScanlineUtil {
 			AbstractPNGLineConsumer consumer) throws IOException {
 		final int channels = 4;
 		final int rowByteSize = 1 + channels * width;
-		final int[] elements = new int[width];
 		byte[] currLine = new byte[rowByteSize];
 		byte[] prevLine = new byte[rowByteSize];
 
-		for (int y = yStart; y < height; y++) {
-			imageRaster.getDataElements(0, y, width, 1, elements);
+		if (imageRaster.getSampleModel() instanceof SinglePixelPackedSampleModel) {
+			SinglePixelPackedSampleModel sampleModel = (SinglePixelPackedSampleModel) imageRaster.getSampleModel();
+			int scanlineStride = sampleModel.getScanlineStride();
+			assert sampleModel.getNumBands() == 4;
+			assert sampleModel.getBitOffsets()[0] == 16;
+			assert sampleModel.getBitOffsets()[1] == 8;
+			assert sampleModel.getBitOffsets()[2] == 0;
+			assert sampleModel.getBitOffsets()[3] == 24;
+			int[] rawInts = ((DataBufferInt) imageRaster.getDataBuffer()).getData();
 
-			int rowByteOffset = 1;
+			for (int y = yStart; y < height; y++) {
+				int pixelPtr = y * scanlineStride;
 
-			for (int x = 0; x < width; x++) {
-				final int element = elements[x];
-				currLine[rowByteOffset++] = (byte) (element >> 16); // R
-				currLine[rowByteOffset++] = (byte) (element >> 8); // G
-				currLine[rowByteOffset++] = (byte) element; // B
-				currLine[rowByteOffset++] = (byte) (element >> 24); // A
+				int rowByteOffset = 1;
+				for (int x = 0; x < width; x++) {
+					final int element = rawInts[pixelPtr++];
+					currLine[rowByteOffset++] = (byte) (element >> 16); // R
+					currLine[rowByteOffset++] = (byte) (element >> 8); // G
+					currLine[rowByteOffset++] = (byte) element; // B
+					currLine[rowByteOffset++] = (byte) (element >> 24); // A
+				}
+
+				consumer.consume(currLine, prevLine);
+
+				{
+					byte[] b = currLine;
+					currLine = prevLine;
+					prevLine = b;
+				}
 			}
-
-			consumer.consume(currLine, prevLine);
-
-			{
-				byte[] b = currLine;
-				currLine = prevLine;
-				prevLine = b;
-			}
+		} else {
+			throw new IllegalStateException("TYPE_INT_RGB must have a SinglePixelPackedSampleModel");
 		}
 	}
 
