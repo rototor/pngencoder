@@ -224,8 +224,9 @@ class PngEncoderScanlineUtil {
 			assert sampleModel.getBitOffsets()[2] == 0;
 			int[] rawInts = ((DataBufferInt) imageRaster.getDataBuffer()).getData();
 
+			int linePtr = scanlineStride * yStart;
 			for (int y = yStart; y < height; y++) {
-				int pixelPtr = y * scanlineStride;
+				int pixelPtr = linePtr;
 
 				int rowByteOffset = 1;
 				for (int x = 0; x < width; x++) {
@@ -235,6 +236,7 @@ class PngEncoderScanlineUtil {
 					currLine[rowByteOffset++] = (byte) element; // B
 				}
 
+				linePtr += scanlineStride;
 				consumer.consume(currLine, prevLine);
 
 				{
@@ -274,8 +276,9 @@ class PngEncoderScanlineUtil {
 			assert sampleModel.getBitOffsets()[3] == 24;
 			int[] rawInts = ((DataBufferInt) imageRaster.getDataBuffer()).getData();
 
+			int linePtr = scanlineStride * yStart;
 			for (int y = yStart; y < height; y++) {
-				int pixelPtr = y * scanlineStride;
+				int pixelPtr = linePtr;
 
 				int rowByteOffset = 1;
 				for (int x = 0; x < width; x++) {
@@ -286,6 +289,7 @@ class PngEncoderScanlineUtil {
 					currLine[rowByteOffset++] = (byte) (element >> 24); // A
 				}
 
+				linePtr += scanlineStride;
 				consumer.consume(currLine, prevLine);
 
 				{
@@ -312,27 +316,41 @@ class PngEncoderScanlineUtil {
 			AbstractPNGLineConsumer consumer) throws IOException {
 		final int channels = 3;
 		final int rowByteSize = 1 + channels * width;
-		final int[] elements = new int[width];
 		byte[] currLine = new byte[rowByteSize];
 		byte[] prevLine = new byte[rowByteSize];
 
-		for (int y = yStart; y < height; y++) {
-			imageRaster.getDataElements(0, y, width, 1, elements);
+		if (imageRaster.getSampleModel() instanceof SinglePixelPackedSampleModel) {
+			SinglePixelPackedSampleModel sampleModel = (SinglePixelPackedSampleModel) imageRaster.getSampleModel();
+			int scanlineStride = sampleModel.getScanlineStride();
+			assert sampleModel.getNumBands() == 3;
+			assert sampleModel.getBitOffsets()[0] == 0;
+			assert sampleModel.getBitOffsets()[1] == 8;
+			assert sampleModel.getBitOffsets()[2] == 16;
+			int[] rawInts = ((DataBufferInt) imageRaster.getDataBuffer()).getData();
 
-			int rowByteOffset = 1;
+			int linePtr = scanlineStride * yStart;
+			for (int y = yStart; y < height; y++) {
+				int pixelPtr = linePtr;
 
-			for (int x = 0; x < width; x++) {
-				final int element = elements[x];
-				currLine[rowByteOffset++] = (byte) (element); // R
-				currLine[rowByteOffset++] = (byte) (element >> 8); // G
-				currLine[rowByteOffset++] = (byte) (element >> 16); // B
+				int rowByteOffset = 1;
+				for (int x = 0; x < width; x++) {
+					final int element = rawInts[pixelPtr++];
+					currLine[rowByteOffset++] = (byte) element; // R
+					currLine[rowByteOffset++] = (byte) (element >> 8); // G
+					currLine[rowByteOffset++] = (byte) (element >> 16); // B
+				}
+
+				linePtr += scanlineStride;
+				consumer.consume(currLine, prevLine);
+
+				{
+					byte[] b = currLine;
+					currLine = prevLine;
+					prevLine = b;
+				}
 			}
-			consumer.consume(currLine, prevLine);
-			{
-				byte[] b = currLine;
-				currLine = prevLine;
-				prevLine = b;
-			}
+		} else {
+			throw new IllegalStateException("TYPE_INT_BGR must have a SinglePixelPackedSampleModel");
 		}
 	}
 
@@ -348,20 +366,38 @@ class PngEncoderScanlineUtil {
 			AbstractPNGLineConsumer consumer) throws IOException {
 		final int channels = 3;
 		final int rowByteSize = 1 + channels * width;
-		final byte[] elements = new byte[width * 3];
 		byte[] currLine = new byte[rowByteSize];
 		byte[] prevLine = new byte[rowByteSize];
-		for (int y = yStart; y < height; y++) {
-			imageRaster.getDataElements(0, y, width, 1, elements);
+		DataBufferByte dataBufferByte = (DataBufferByte) imageRaster.getDataBuffer();
+		if (imageRaster.getSampleModel() instanceof PixelInterleavedSampleModel) {
+			PixelInterleavedSampleModel sampleModel = (PixelInterleavedSampleModel) imageRaster.getSampleModel();
+			byte[] rawBytes = dataBufferByte.getData();
+			int scanlineStride = sampleModel.getScanlineStride();
+			int pixelStride = sampleModel.getPixelStride();
 
-			currLine[0] = 0;
-			System.arraycopy(elements, 0, currLine, 1, elements.length);
-			consumer.consume(currLine, prevLine);
-			{
-				byte[] b = currLine;
-				currLine = prevLine;
-				prevLine = b;
+			assert pixelStride == 3;
+			int linePtr = scanlineStride * yStart;
+			for (int y = yStart; y < height; y++) {
+				int pixelPtr = linePtr;
+				int writePtr = 1;
+				for (int x = 0; x < width; x++) {
+					byte b = rawBytes[pixelPtr++];
+					byte g = rawBytes[pixelPtr++];
+					byte r = rawBytes[pixelPtr++];
+					currLine[writePtr++] = r;
+					currLine[writePtr++] = g;
+					currLine[writePtr++] = b;
+				}
+				linePtr += scanlineStride;
+				consumer.consume(currLine, prevLine);
+				{
+					byte[] b = currLine;
+					currLine = prevLine;
+					prevLine = b;
+				}
 			}
+		} else {
+			throw new IllegalStateException("3ByteBgr must have a PixelInterleavedSampleModel");
 		}
 	}
 
@@ -377,7 +413,6 @@ class PngEncoderScanlineUtil {
 			AbstractPNGLineConsumer consumer) throws IOException {
 		final int channels = 4;
 		final int rowByteSize = 1 + channels * width;
-		final byte[] elements = new byte[width * 4];
 		byte[] currLine = new byte[rowByteSize];
 		byte[] prevLine = new byte[rowByteSize];
 		DataBufferByte dataBufferByte = (DataBufferByte) imageRaster.getDataBuffer();
@@ -388,7 +423,7 @@ class PngEncoderScanlineUtil {
 			int pixelStride = sampleModel.getPixelStride();
 
 			assert pixelStride == 4;
-			int linePtr = 0;
+			int linePtr = scanlineStride * yStart;
 			for (int y = yStart; y < height; y++) {
 				int pixelPtr = linePtr;
 				int writePtr = 1;
@@ -421,33 +456,43 @@ class PngEncoderScanlineUtil {
 		ByteBufferPNGLineConsumer consumer = new ByteBufferPNGLineConsumer(rowByteSize * height);
 		getByteGray(imageRaster, 0, width, height, consumer);
 		return consumer.bytes;
-
 	}
 
 	static void getByteGray(WritableRaster imageRaster, int yStart, int width, int height,
 			AbstractPNGLineConsumer consumer) throws IOException {
 		final int channels = 3;
 		final int rowByteSize = 1 + channels * width;
-		final byte[] elements = new byte[width];
 		byte[] currLine = new byte[rowByteSize];
 		byte[] prevLine = new byte[rowByteSize];
-		for (int y = yStart; y < height; y++) {
-			imageRaster.getDataElements(0, y, width, 1, elements);
 
-			int rowByteOffset = 1;
+		DataBufferByte dataBufferByte = (DataBufferByte) imageRaster.getDataBuffer();
+		if (imageRaster.getSampleModel() instanceof PixelInterleavedSampleModel) {
+			PixelInterleavedSampleModel sampleModel = (PixelInterleavedSampleModel) imageRaster.getSampleModel();
+			byte[] rawBytes = dataBufferByte.getData();
+			int scanlineStride = sampleModel.getScanlineStride();
+			int pixelStride = sampleModel.getPixelStride();
 
-			for (int x = 0; x < width; x++) {
-				byte grayColorValue = elements[x];
-				currLine[rowByteOffset++] = grayColorValue; // R
-				currLine[rowByteOffset++] = grayColorValue; // G
-				currLine[rowByteOffset++] = grayColorValue; // B
+			assert pixelStride == 1;
+			int linePtr = scanlineStride * yStart;
+			for (int y = yStart; y < height; y++) {
+				int pixelPtr = linePtr;
+				int writePtr = 1;
+				for (int x = 0; x < width; x++) {
+					byte grayColorValue = rawBytes[pixelPtr++];
+					currLine[writePtr++] = grayColorValue;
+					currLine[writePtr++] = grayColorValue;
+					currLine[writePtr++] = grayColorValue;
+				}
+				linePtr += scanlineStride;
+				consumer.consume(currLine, prevLine);
+				{
+					byte[] b = currLine;
+					currLine = prevLine;
+					prevLine = b;
+				}
 			}
-			consumer.consume(currLine, prevLine);
-			{
-				byte[] b = currLine;
-				currLine = prevLine;
-				prevLine = b;
-			}
+		} else {
+			throw new IllegalStateException("TYPE_BYTE_GRAY must have a PixelInterleavedSampleModel");
 		}
 	}
 
@@ -461,33 +506,39 @@ class PngEncoderScanlineUtil {
 
 	static void getUshortGray(WritableRaster imageRaster, int yStart, int width, int height,
 			AbstractPNGLineConsumer consumer) throws IOException {
-
 		final int channels = 3;
 		final int rowByteSize = 1 + channels * width;
-		final short[] elements = new short[width];
 		byte[] currLine = new byte[rowByteSize];
 		byte[] prevLine = new byte[rowByteSize];
 
-		for (int y = yStart; y < height; y++) {
-			imageRaster.getDataElements(0, y, width, 1, elements);
+		DataBufferUShort dataBufferUShort = (DataBufferUShort) imageRaster.getDataBuffer();
+		if (imageRaster.getSampleModel() instanceof PixelInterleavedSampleModel) {
+			PixelInterleavedSampleModel sampleModel = (PixelInterleavedSampleModel) imageRaster.getSampleModel();
+			short[] rawBytes = dataBufferUShort.getData();
+			int scanlineStride = sampleModel.getScanlineStride();
+			int pixelStride = sampleModel.getPixelStride();
 
-			int rowByteOffset = 1;
-
-			for (int x = 0; x < width; x++) {
-				byte grayColorValue = (byte) (elements[x] >> 8);
-
-				currLine[rowByteOffset++] = grayColorValue; // R
-				currLine[rowByteOffset++] = grayColorValue; // G
-				currLine[rowByteOffset++] = grayColorValue; // B
+			assert pixelStride == 1;
+			int linePtr = scanlineStride * yStart;
+			for (int y = yStart; y < height; y++) {
+				int pixelPtr = linePtr;
+				int writePtr = 1;
+				for (int x = 0; x < width; x++) {
+					byte grayColorValue = (byte) (rawBytes[pixelPtr++] >> 8);
+					currLine[writePtr++] = grayColorValue;
+					currLine[writePtr++] = grayColorValue;
+					currLine[writePtr++] = grayColorValue;
+				}
+				linePtr += scanlineStride;
+				consumer.consume(currLine, prevLine);
+				{
+					byte[] b = currLine;
+					currLine = prevLine;
+					prevLine = b;
+				}
 			}
-
-			consumer.consume(currLine, prevLine);
-			{
-				byte[] b = currLine;
-				currLine = prevLine;
-				prevLine = b;
-			}
-
+		} else {
+			throw new IllegalStateException("TYPE_USHORT_GRAY must have a PixelInterleavedSampleModel");
 		}
 	}
 }
