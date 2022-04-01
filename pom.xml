@@ -4,7 +4,7 @@
 
     <groupId>com.pngencoder</groupId>
     <artifactId>pngencoder</artifactId>
-    <version>0.12.1-rototor-3</version>
+    <version>0.12.1-rototor-4</version>
     <packaging>jar</packaging>
 
     <name>${project.groupId}:${project.artifactId}</name>
