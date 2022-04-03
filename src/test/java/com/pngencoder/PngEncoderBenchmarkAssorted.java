@@ -29,6 +29,8 @@ public class PngEncoderBenchmarkAssorted {
         }
     }
 
+    private final static boolean DISALBE_IMAGE_IO = false;
+
     @Disabled("run manually")
     @Test
     public void runBenchmarkCustom() throws IOException {
@@ -44,14 +46,16 @@ public class PngEncoderBenchmarkAssorted {
         System.out.println(outPngEncoder.getAbsolutePath());
         outPngEncoder.getParentFile().mkdir();
 
-        ImageIO.write(original, "png", outImageIO);
-        Timing.message("ImageIO Warmup");
+        if (!DISALBE_IMAGE_IO) {
+            ImageIO.write(original, "png", outImageIO);
+            Timing.message("ImageIO Warmup");
 
-        ImageIO.write(original, "png", outImageIO);
-        Timing.message("ImageIO Result");
+            ImageIO.write(original, "png", outImageIO);
+            Timing.message("ImageIO Result");
+        }
 
         PngEncoder pngEncoder = new PngEncoder()
-                //.withMultiThreadedCompressionEnabled(false)
+                .withMultiThreadedCompressionEnabled(false)
                 .withPredictorEncoding(true)
                 .withCompressionLevel(4)
                 .withBufferedImage(original);
@@ -60,8 +64,10 @@ public class PngEncoderBenchmarkAssorted {
         pngEncoder.toFile(outPngEncoder);
         Timing.message("PngEncoder Warmup");
 
-        pngEncoder.toFile(outPngEncoder);
-        Timing.message("PngEncoder Result");
+        for (int i = 0; i < 10; i++) {
+            pngEncoder.toFile(outPngEncoder);
+            Timing.message("PngEncoder Result " + i);
+        }
 
         final long imageIOSize = outImageIO.length();
         final long pngEncoderSize = outPngEncoder.length();
