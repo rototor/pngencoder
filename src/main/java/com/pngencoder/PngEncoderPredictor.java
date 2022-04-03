@@ -32,7 +32,7 @@ class PngEncoderPredictor {
                 throw new UncheckedIOException(e);
             }
 
-            out.write(outBytes.toByteArray());
+            outBytes.writeTo(out);
             outBytes.reset();
         }
     }
