@@ -40,7 +40,9 @@ public class PngEncoderBenchmarkAssorted {
 
         final File outImageIO = File.createTempFile("out-imageio", ".png");
         //final File outPngEncoder = File.createTempFile("out-pngencoder", ".png");
-        final File outPngEncoder = new File("/Users/olof/Desktop/out.png");
+        final File outPngEncoder = new File("target/test/assorted_out.png");
+        System.out.println(outPngEncoder.getAbsolutePath());
+        outPngEncoder.getParentFile().mkdir();
 
         ImageIO.write(original, "png", outImageIO);
         Timing.message("ImageIO Warmup");
@@ -50,6 +52,7 @@ public class PngEncoderBenchmarkAssorted {
 
         PngEncoder pngEncoder = new PngEncoder()
                 //.withMultiThreadedCompressionEnabled(false)
+                .withPredictorEncoding(true)
                 .withCompressionLevel(9)
                 .withBufferedImage(original);
         System.out.println(outPngEncoder);
