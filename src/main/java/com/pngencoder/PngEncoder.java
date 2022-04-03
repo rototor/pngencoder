@@ -110,9 +110,8 @@ public class PngEncoder {
     }
 
     /**
-     * Returns a new PngEncoder which has the same configuration as this one except
-     * {@code srgbRenderingIntent}. The new PngEncoder will add an sRGB chunk to the
-     * encoded PNG and use the provided {@code srgbRenderingIntent}.
+     * Returns a new PngEncoder which has the same configuration as this one except {@code srgbRenderingIntent}.
+     * The new PngEncoder will add an sRGB chunk to the encoded PNG and use the provided {@code srgbRenderingIntent}.
      *
      * @param srgbRenderingIntent the rendering intent that should be used when displaying the image
      * @return a new PngEncoder
@@ -223,8 +222,8 @@ public class PngEncoder {
     /**
      * Encodes the image and returns data as {@code byte[]}.
      *
-     * @return encoded data
      * @throws NullPointerException if the image has not been set.
+     * @return encoded data
      */
     public byte[] toBytes() {
         ByteArrayOutputStream outputStream = new ByteArrayOutputStream(64 * 1024);

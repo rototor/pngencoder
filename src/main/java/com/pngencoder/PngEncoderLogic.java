@@ -36,11 +36,10 @@ class PngEncoderLogic {
 
     // Default values for the gAMA and cHRM chunks when an sRGB chunk is used,
     // as specified at http://www.libpng.org/pub/png/spec/1.2/PNG-Chunks.html#C.sRGB
-    // "An application that writes the sRGB chunk should also write a gAMA chunk
-    // (and perhaps a cHRM chunk)
-    // for compatibility with applications that do not use the sRGB chunk.
-    // In this situation, only the following values may be used:
-    // ..."
+    //   "An application that writes the sRGB chunk should also write a gAMA chunk (and perhaps a cHRM chunk)
+    //    for compatibility with applications that do not use the sRGB chunk.
+    //    In this situation, only the following values may be used:
+    //    ..."
     public static final byte[] GAMA_SRGB_VALUE = ByteBuffer.allocate(4).putInt(45455).array();
     public static final byte[] CHRM_SRGB_VALUE = ByteBuffer.allocate(8 * 4)
             .putInt(31270)
