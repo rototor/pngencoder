@@ -1,5 +1,6 @@
 # IntelliJ project file
 *.iml
+.idea/
 
 # Java Flight Recorder
 *.jfr
