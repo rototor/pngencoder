@@ -57,14 +57,14 @@ public class PngEncoderBenchmarkAssorted {
         PngEncoder pngEncoder = new PngEncoder()
                 .withMultiThreadedCompressionEnabled(true)
                 .withPredictorEncoding(true)
-                .withCompressionLevel(4)
+                .withCompressionLevel(9)
                 .withBufferedImage(original);
         System.out.println(outPngEncoder);
 
         pngEncoder.toFile(outPngEncoder);
         Timing.message("PngEncoder Warmup");
 
-        for (int i = 0; i < 10; i++) {
+        for (int i = 0; i < 1; i++) {
             pngEncoder.toFile(outPngEncoder);
             Timing.message("PngEncoder Result " + i);
         }

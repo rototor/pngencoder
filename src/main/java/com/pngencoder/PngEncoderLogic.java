@@ -106,7 +106,6 @@ class PngEncoderLogic {
                 deflaterOutputStream.finish();
             }
         } else {
-
             if (estimatedBytes <= segmentMaxLengthOriginal || !multiThreadedCompressionEnabled) {
                 Deflater deflater = new Deflater(compressionLevel);
                 DeflaterOutputStream deflaterOutputStream = new DeflaterOutputStream(idatChunksOutputStream, deflater);

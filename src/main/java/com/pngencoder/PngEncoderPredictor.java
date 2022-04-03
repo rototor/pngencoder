@@ -7,69 +7,34 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.UncheckedIOException;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentLinkedQueue;
 
 class PngEncoderPredictor {
 
     int bytesPerPixel;
 
-    static class CompressionResult {
-        int yStart;
-        int heightToProcess;
-        byte[] result;
-    }
-
     static void encodeImageMultithreaded(BufferedImage image, PngEncoderScanlineUtil.EncodingMetaInfo metaInfo, OutputStream out) throws IOException {
         int height = image.getHeight();
-        int heightPerSlice = height / PngEncoderDeflaterExecutorService.NUM_THREADS_IS_AVAILABLE_PROCESSORS;
+        int heightPerSlice = Math.max(10, PngEncoderDeflaterOutputStream.SEGMENT_MAX_LENGTH_ORIGINAL_MIN / metaInfo.rowByteSize) + 1;
 
         /*
          * Schedule all tasks for all segments
          */
-        ConcurrentLinkedQueue<CompletableFuture<CompressionResult>> resultList = new ConcurrentLinkedQueue<>();
+        ByteArrayOutputStream outBytes = new ByteArrayOutputStream(heightPerSlice * metaInfo.rowByteSize);
         for (int y = 0; y < height; y += heightPerSlice) {
-            final int yStart = y;
-            CompletableFuture<CompressionResult> completableFuture = CompletableFuture.supplyAsync(() -> {
-                int heightToProcess = Math.min(heightPerSlice, height - yStart);
-                /*
-                 * We overestimate the buffer we need, to avoid any copy...
-                 */
-                ByteArrayOutputStream outBytes = new ByteArrayOutputStream(heightToProcess * metaInfo.rowByteSize);
-
+            int heightToProcess = Math.min(heightPerSlice, height - y);
+            /*
+             * We overestimate the buffer we need, to avoid any copy...
+             */
+            try {
                 PngEncoderPredictor predictor = new PngEncoderPredictor();
-                try {
-                    predictor.encodeImage(image, yStart, heightToProcess, metaInfo, outBytes);
-                } catch (IOException e) {
-                    throw new UncheckedIOException(e);
-                }
-
-                CompressionResult result = new CompressionResult();
-                result.yStart = yStart;
-                result.heightToProcess = heightToProcess;
-                result.result = outBytes.toByteArray();
-                return result;
-            }, PngEncoderDeflaterExecutorService.getInstance());
-            resultList.offer(completableFuture);
-        }
-
-        /*
-         * Await the result
-         */
-        int y = 0;
-        while (true) {
-            CompletableFuture<CompressionResult> completableFuture = resultList.poll();
-            if (completableFuture == null) {
-                break;
+                predictor.encodeImage(image, y, heightToProcess, metaInfo, outBytes);
+            } catch (IOException e) {
+                throw new UncheckedIOException(e);
             }
-            CompressionResult result = completableFuture.join();
-            assert result.yStart == y;
-            assert result.heightToProcess <= heightPerSlice;
-            assert result.heightToProcess + y <= height;
-            y += result.heightToProcess;
-            out.write(result.result);
+
+            out.write(outBytes.toByteArray());
+            outBytes.reset();
         }
-        assert y == height;
     }
 
     void encodeImage(BufferedImage image, int yStart, int height, PngEncoderScanlineUtil.EncodingMetaInfo metaInfo, OutputStream outputStream) throws IOException {
