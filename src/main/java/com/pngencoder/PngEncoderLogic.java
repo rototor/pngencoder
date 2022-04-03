@@ -118,10 +118,14 @@ class PngEncoderLogic {
                 deflaterOutputStream.finish();
                 deflaterOutputStream.flush();
             } else {
-                final byte[] scanlineBytes = PngEncoderScanlineUtil.get(bufferedImage);
                 PngEncoderDeflaterOutputStream deflaterOutputStream = new PngEncoderDeflaterOutputStream(
                         idatChunksOutputStream, compressionLevel, segmentMaxLengthOriginal);
-                deflaterOutputStream.write(scanlineBytes);
+                PngEncoderScanlineUtil.stream(bufferedImage, 0, bufferedImage.getHeight(), new AbstractPNGLineConsumer() {
+                    @Override
+                    void consume(byte[] currRow, byte[] prevRow) throws IOException {
+                        deflaterOutputStream.write(currRow);
+                    }
+                });
                 deflaterOutputStream.finish();
             }
         }
