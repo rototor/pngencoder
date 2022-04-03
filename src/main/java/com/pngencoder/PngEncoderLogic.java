@@ -42,8 +42,16 @@ class PngEncoderLogic {
     // In this situation, only the following values may be used:
     // ..."
     public static final byte[] GAMA_SRGB_VALUE = ByteBuffer.allocate(4).putInt(45455).array();
-    public static final byte[] CHRM_SRGB_VALUE = ByteBuffer.allocate(8 * 4).putInt(31270).putInt(32900).putInt(64000)
-            .putInt(33000).putInt(30000).putInt(60000).putInt(15000).putInt(6000).array();
+    public static final byte[] CHRM_SRGB_VALUE = ByteBuffer.allocate(8 * 4)
+            .putInt(31270)
+            .putInt(32900)
+            .putInt(64000)
+            .putInt(33000)
+            .putInt(30000)
+            .putInt(60000)
+            .putInt(15000)
+            .putInt(6000)
+            .array();
 
     private PngEncoderLogic() {
     }
@@ -123,23 +131,17 @@ class PngEncoderLogic {
     private static byte[] getICCP(ICC_Profile colorProfile) throws IOException {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
 
-        /*
-         * Write the profile name
-         */
+        // Write the profile name
         String name = getProfileName(colorProfile);
         byte[] nameBytes = name.getBytes(StandardCharsets.ISO_8859_1);
         int nameByteWriteLen = Math.min(nameBytes.length, 79);
         out.write(nameBytes, 0, nameByteWriteLen);
         out.write(0);
 
-        /*
-         * ZLib Compression
-         */
+        // ZLib Compression
         out.write(IHDR_COMPRESSION_METHOD);
 
-        /*
-         * ICC Profile Data
-         */
+        // ICC Profile Data
         try (DeflaterOutputStream compressStream = new DeflaterOutputStream(out)) {
             compressStream.write(colorProfile.getData());
         }

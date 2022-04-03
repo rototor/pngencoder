@@ -74,9 +74,8 @@ public class PngEncoder {
     }
 
     /**
-     * Returns a new PngEncoder which has the same configuration as this one except
-     * {@code bufferedImage}. The new PngEncoder will use the provided
-     * {@code bufferedImage}.
+     * Returns a new PngEncoder which has the same configuration as this one except {@code bufferedImage}.
+     * The new PngEncoder will use the provided {@code bufferedImage}.
      *
      * @param bufferedImage input image
      * @return a new PngEncoder
@@ -87,9 +86,8 @@ public class PngEncoder {
     }
 
     /**
-     * Returns a new PngEncoder which has the same configuration as this one except
-     * {@code compressionLevel}. The new PngEncoder will use the provided
-     * {@code compressionLevel}.
+     * Returns a new PngEncoder which has the same configuration as this one except {@code compressionLevel}.
+     * The new PngEncoder will use the provided {@code compressionLevel}.
      *
      * @param compressionLevel input image (must be between -1 and 9 inclusive)
      * @return a new PngEncoder
@@ -100,9 +98,8 @@ public class PngEncoder {
     }
 
     /**
-     * Returns a new PngEncoder which has the same configuration as this one except
-     * {@code multiThreadedCompressionEnabled}. The new PngEncoder will use the
-     * provided {@code multiThreadedCompressionEnabled}.
+     * Returns a new PngEncoder which has the same configuration as this one except {@code multiThreadedCompressionEnabled}.
+     * The new PngEncoder will use the provided {@code multiThreadedCompressionEnabled}.
      *
      * @param multiThreadedCompressionEnabled when {@code true}, multithreaded compression will be used
      * @return a new PngEncoder
@@ -131,6 +128,9 @@ public class PngEncoder {
     }
 
     /**
+     * Returns a new PngEncoder which has the same configuration as this one except {@code enablePredictor}.
+     * The new PngEncoder will use the provided {@code enablePredictor}.
+     *
      * @param enablePredictor true if predictor encoding should be used.
      * @return a new PngEncoder
      */
@@ -144,6 +144,9 @@ public class PngEncoder {
         return bufferedImage;
     }
 
+    /**
+     * @return true if the predictor encoding is enabled.
+     */
     public boolean isPredictorEncodingEnabled() {
         return predictorEncoding.isEnabled(compressionLevel, multiThreadedCompressionEnabled);
     }
@@ -164,8 +167,8 @@ public class PngEncoder {
      * Encodes the image to outputStream.
      *
      * @param outputStream destination of the encoded data
-     * @return number of bytes written
      * @throws NullPointerException if the image has not been set.
+     * @return number of bytes written
      */
     public int toStream(OutputStream outputStream) {
         try {
@@ -181,9 +184,9 @@ public class PngEncoder {
      * Encodes the image and saves data into {@code filePath}.
      *
      * @param filePath destination file where the encoded data will be written
-     * @return number of bytes written
      * @throws NullPointerException if the image has not been set.
      * @throws UncheckedIOException instead of IOException
+     * @return number of bytes written
      */
     public int toFile(Path filePath) {
         try (OutputStream outputStream = Files.newOutputStream(filePath)) {
@@ -197,9 +200,9 @@ public class PngEncoder {
      * Encodes the image and saves data into {@code file}.
      *
      * @param file destination file where the encoded data will be written
-     * @return number of bytes written
      * @throws NullPointerException if the image has not been set.
      * @throws UncheckedIOException instead of IOException
+     * @return number of bytes written
      */
     public int toFile(File file) {
         return toFile(file.toPath());
