@@ -55,7 +55,7 @@ public class PngEncoderBenchmarkAssorted {
         }
 
         PngEncoder pngEncoder = new PngEncoder()
-                .withMultiThreadedCompressionEnabled(false)
+                .withMultiThreadedCompressionEnabled(true)
                 .withPredictorEncoding(true)
                 .withCompressionLevel(4)
                 .withBufferedImage(original);

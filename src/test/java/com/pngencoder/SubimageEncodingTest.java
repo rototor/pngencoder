@@ -26,7 +26,12 @@ public class SubimageEncodingTest {
         PngEncoder multithreadPredictorCompressor = plainCompressor.withMultiThreadedCompressionEnabled(true).withPredictorEncoding(true);
         for (PngEncoderBufferedImageType type : typesToTest) {
             final BufferedImage bufferedImage = PngEncoderTestUtil.createTestImage(type);
-            for (PngEncoder encoder : new PngEncoder[]{plainCompressor, predictorCompressor, multithreadCompressor, multithreadPredictorCompressor}) {
+            for (PngEncoder encoder : new PngEncoder[]{
+                    plainCompressor,
+                    predictorCompressor,
+                    multithreadCompressor,
+                    multithreadPredictorCompressor
+            }) {
                 validateImage(type, bufferedImage, encoder);
                 validateImage(type, bufferedImage.getSubimage(10, 10, 50, 50), encoder);
             }

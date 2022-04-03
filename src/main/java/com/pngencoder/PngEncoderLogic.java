@@ -90,8 +90,9 @@ class PngEncoderLogic {
         PngEncoderIdatChunksOutputStream idatChunksOutputStream = new PngEncoderIdatChunksOutputStream(
                 countingOutputStream);
         int estimatedBytes = metaInfo.rowByteSize * bufferedImage.getHeight();
+        final int segmentMaxLengthOriginal = PngEncoderDeflaterOutputStream.getSegmentMaxLengthOriginal(estimatedBytes);
         if (usePreditor) {
-            if (true || !multiThreadedCompressionEnabled) {
+            if (estimatedBytes <= segmentMaxLengthOriginal || !multiThreadedCompressionEnabled) {
                 Deflater deflater = new Deflater(compressionLevel);
                 DeflaterOutputStream deflaterOutputStream = new DeflaterOutputStream(idatChunksOutputStream, deflater);
                 PngEncoderPredictor predictor = new PngEncoderPredictor();
@@ -99,11 +100,9 @@ class PngEncoderLogic {
                 deflaterOutputStream.finish();
                 deflaterOutputStream.flush();
             } else {
-                PngEncoderPredictor predictor = new PngEncoderPredictor();
-                predictor.encodeImageMultithreaded(bufferedImage, compressionLevel, idatChunksOutputStream);
+                PngEncoderPredictor.encodeImageMultithreaded(bufferedImage, compressionLevel, idatChunksOutputStream);
             }
         } else {
-            final int segmentMaxLengthOriginal = PngEncoderDeflaterOutputStream.getSegmentMaxLengthOriginal(estimatedBytes);
 
             if (estimatedBytes <= segmentMaxLengthOriginal || !multiThreadedCompressionEnabled) {
                 Deflater deflater = new Deflater(compressionLevel);
