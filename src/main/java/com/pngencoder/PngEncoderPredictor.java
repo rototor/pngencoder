@@ -9,7 +9,6 @@ import java.io.OutputStream;
 class PngEncoderPredictor {
 
     int bytesPerPixel;
-    private static final boolean FILTER_PAETH_ENABLED = false;
 
     public void encodeImage(BufferedImage image, int yStart, int height, OutputStream outputStream) throws IOException {
         bytesPerPixel = image.getColorModel().hasAlpha() ? 4 : 3;
@@ -55,25 +54,45 @@ class PngEncoderPredictor {
                         a = currRow[i - bpp] & 0xFF;
                         c = prevRow[i - bpp] & 0xFF;
                     }
-                    byte bSub = pngFilterSub(x, a);
-                    byte bUp = pngFilterUp(x, b);
-                    byte bAverage = pngFilterAverage(x, a, b);
-                    byte bPaeth = FILTER_PAETH_ENABLED ? pngFilterPaeth(x, a, b, c) : 0;
+                    /*
+                     * Manual inlining of all pngFilters
+                     */
+                    byte bSub = (byte) (x - a);
+                    assert bSub == pngFilterSub(x, a);
+                    byte bUp = (byte) (x - b);
+                    assert bUp == pngFilterUp(x, b);
+                    byte bAverage = (byte) (x - ((b + a) / 2));
+                    assert bAverage == pngFilterAverage(x, a, b);
+                    byte bPaeth;
+                    {
+                        int p = a + b - c;
+                        int pa = Math.abs(p - a);
+                        int pb = Math.abs(p - b);
+                        int pc = Math.abs(p - c);
+                        final int pr;
+                        if (pa <= pb && pa <= pc) {
+                            pr = a;
+                        } else if (pb <= pc) {
+                            pr = b;
+                        } else {
+                            pr = c;
+                        }
+
+                        int r = x - pr;
+                        bPaeth = (byte) r;
+                        assert bPaeth == pngFilterPaeth(x, a, b, c);
+                    }
 
                     dataRawRowSub[i] = bSub;
                     dataRawRowUp[i] = bUp;
                     dataRawRowAverage[i] = bAverage;
-                    if (FILTER_PAETH_ENABLED) {
-                        dataRawRowPaeth[i] = bPaeth;
-                    }
+                    dataRawRowPaeth[i] = bPaeth;
 
                     estCompressSum += Math.abs(x);
                     estCompressSumSub += Math.abs(bSub);
                     estCompressSumUp += Math.abs(bUp);
                     estCompressSumAvg += Math.abs(bAverage);
-                    if (FILTER_PAETH_ENABLED) {
-                        estCompressSumPaeth += Math.abs(bPaeth);
-                    }
+                    estCompressSumPaeth += Math.abs(bPaeth);
                 }
 
                 /*
@@ -93,7 +112,7 @@ class PngEncoderPredictor {
                     rowToWrite = dataRawRowAverage;
                     estCompressSum = estCompressSumAvg;
                 }
-                if (FILTER_PAETH_ENABLED && estCompressSum > estCompressSumPaeth) {
+                if (estCompressSum > estCompressSumPaeth) {
                     rowToWrite = dataRawRowPaeth;
                 }
 
@@ -112,7 +131,7 @@ class PngEncoderPredictor {
      * PNG Filters, see https://www.w3.org/TR/PNG-Filters.html
      */
     private static byte pngFilterSub(int x, int a) {
-        return (byte) ((x & 0xFF) - (a & 0xFF));
+        return (byte) ((x) - (a));
     }
 
     private static byte pngFilterUp(int x, int b) {
@@ -124,6 +143,10 @@ class PngEncoderPredictor {
         return (byte) (x - ((b + a) / 2));
     }
 
+    /**
+     * This method describes the algorythm. For performance reasons it has to be inlined in to the innerloop,
+     * as the JVM will not inline this method, as it is to big...
+     */
     private static byte pngFilterPaeth(int x, int a, int b, int c) {
         int p = a + b - c;
         int pa = Math.abs(p - a);
