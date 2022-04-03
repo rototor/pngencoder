@@ -3,17 +3,70 @@ package com.pngencoder;
 import com.pngencoder.PngEncoderScanlineUtil.AbstractPNGLineConsumer;
 
 import java.awt.image.BufferedImage;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.io.UncheckedIOException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.zip.Deflater;
+import java.util.zip.DeflaterOutputStream;
 
 class PngEncoderPredictor {
 
     int bytesPerPixel;
 
+    public void encodeImageMultithreaded(BufferedImage image, int compressionLevel, OutputStream outputStream) throws IOException {
+        int height = image.getHeight();
+        int heightPerSlice = PngEncoderDeflaterExecutorService.NUM_THREADS_IS_AVAILABLE_PROCESSORS;
+
+        /*
+         * Schedule all tasks for all segments
+         */
+        List<CompletableFuture<byte[]>> resultList = new ArrayList<>();
+        for (int y = 0; y < height; y += heightPerSlice) {
+            final int yStart = y;
+            CompletableFuture<byte[]> completableFuture = CompletableFuture.supplyAsync(() -> {
+                ByteArrayOutputStream outBytes = new ByteArrayOutputStream();
+                Deflater def = PngEncoderDeflaterThreadLocalDeflater.getInstance(compressionLevel);
+                DeflaterOutputStream deflaterOutputStream = new DeflaterOutputStream(outBytes, def);
+                try {
+                    int heightToProcess = Math.min(heightPerSlice, height - yStart);
+                    encodeImage(image, yStart, heightToProcess, deflaterOutputStream);
+                    deflaterOutputStream.finish();
+                    deflaterOutputStream.flush();
+                } catch (IOException e) {
+                    throw new UncheckedIOException(e);
+                }
+                return outBytes.toByteArray();
+            }, PngEncoderDeflaterExecutorService.getInstance());
+            resultList.add(completableFuture);
+        }
+
+        /*
+         * Await the result
+         */
+        for (CompletableFuture<byte[]> completableFuture : resultList) {
+            try {
+                outputStream.write(completableFuture.get());
+            } catch (InterruptedException | ExecutionException e) {
+                throw new RuntimeException(e);
+            }
+        }
+    }
+
     public void encodeImage(BufferedImage image, int yStart, int height, OutputStream outputStream) throws IOException {
         PngEncoderScanlineUtil.EncodingMetaInfo metaInfo = PngEncoderScanlineUtil.getEncodingMetaInfo(image);
         bytesPerPixel = metaInfo.bytesPerPixel;
-        PngEncoderScanlineUtil.stream(image, yStart, height, new AbstractPNGLineConsumer() {
+        /*
+         * If we don't start at the first row we fetch the row before first, to ensure the prevRow
+         * is correctly initialized.
+         */
+        int realYStart = yStart > 0 ? yStart - 1 : yStart;
+        PngEncoderScanlineUtil.stream(image, realYStart, height, new AbstractPNGLineConsumer() {
+
             @Override
             void consume(byte[] currRow, byte[] prevRow) throws IOException {
                 dataRawRowNone = currRow;
@@ -27,6 +80,10 @@ class PngEncoderPredictor {
                     dataRawRowUp[0] = 2;
                     dataRawRowAverage[0] = 3;
                     dataRawRowPaeth[0] = 4;
+                    boolean skipFirstRow = yStart > 0;
+                    if (skipFirstRow) {
+                        return;
+                    }
                 }
 
                 // c | b

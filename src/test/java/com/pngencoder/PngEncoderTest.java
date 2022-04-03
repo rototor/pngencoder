@@ -1,9 +1,10 @@
 package com.pngencoder;
 
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.is;
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.w3c.dom.Element;
 
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
@@ -11,18 +12,16 @@ import java.io.IOException;
 import java.util.Iterator;
 import java.util.Objects;
 import java.util.stream.IntStream;
-
 import javax.imageio.ImageIO;
 import javax.imageio.ImageReader;
 import javax.imageio.metadata.IIOMetadata;
 import javax.imageio.metadata.IIOMetadataNode;
 import javax.imageio.stream.ImageInputStream;
 
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.MethodSource;
-import org.junit.jupiter.params.provider.ValueSource;
-import org.w3c.dom.Element;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 public class PngEncoderTest {
 	private static final int WHITE = 0xFFFFFFFF;
@@ -154,6 +153,7 @@ public class PngEncoderTest {
 				.createTestImage(PngEncoderBufferedImageType.TYPE_INT_ARGB);
 
 		byte[] bytes = new PngEncoder().withBufferedImage(bufferedImage).withCompressionLevel(1)
+				.withMultiThreadedCompressionEnabled(false)
 				.withPredictorEncoding(true).toBytes();
 
 		BufferedImage backReadImage = readWithImageIO(bytes);

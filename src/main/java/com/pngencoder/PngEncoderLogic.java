@@ -89,16 +89,20 @@ class PngEncoderLogic {
 
         PngEncoderIdatChunksOutputStream idatChunksOutputStream = new PngEncoderIdatChunksOutputStream(
                 countingOutputStream);
+        int estimatedBytes = metaInfo.rowByteSize * bufferedImage.getHeight();
         if (usePreditor) {
-            Deflater deflater = new Deflater(compressionLevel);
-            DeflaterOutputStream deflaterOutputStream = new DeflaterOutputStream(idatChunksOutputStream, deflater);
-            PngEncoderPredictor predictor = new PngEncoderPredictor();
-            predictor.encodeImage(bufferedImage, 0, bufferedImage.getHeight(), deflaterOutputStream);
-            deflaterOutputStream.finish();
-            deflaterOutputStream.flush();
+            if (true || !multiThreadedCompressionEnabled) {
+                Deflater deflater = new Deflater(compressionLevel);
+                DeflaterOutputStream deflaterOutputStream = new DeflaterOutputStream(idatChunksOutputStream, deflater);
+                PngEncoderPredictor predictor = new PngEncoderPredictor();
+                predictor.encodeImage(bufferedImage, 0, bufferedImage.getHeight(), deflaterOutputStream);
+                deflaterOutputStream.finish();
+                deflaterOutputStream.flush();
+            } else {
+                PngEncoderPredictor predictor = new PngEncoderPredictor();
+                predictor.encodeImageMultithreaded(bufferedImage, compressionLevel, idatChunksOutputStream);
+            }
         } else {
-            int estimatedBytes = bufferedImage.getWidth() * bufferedImage.getHeight() * (bufferedImage.getColorModel().hasAlpha() ? 4 : 3);
-
             final int segmentMaxLengthOriginal = PngEncoderDeflaterOutputStream.getSegmentMaxLengthOriginal(estimatedBytes);
 
             if (estimatedBytes <= segmentMaxLengthOriginal || !multiThreadedCompressionEnabled) {
