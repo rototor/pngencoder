@@ -262,9 +262,10 @@ class PngEncoderScanlineUtil {
                     - imageRaster.getSampleModelTranslateX();
             for (int y = yStart; y < height; y++) {
                 int pixelPtr = linePtr;
+                int pixelEndPtr = linePtr + width;
 
                 int rowByteOffset = 1;
-                for (int x = 0; x < width; x++) {
+                while (pixelPtr < pixelEndPtr) {
                     final int element = rawInts[pixelPtr++];
                     currLine[rowByteOffset++] = (byte) (element >> 16); // R
                     currLine[rowByteOffset++] = (byte) (element >> 8); // G
