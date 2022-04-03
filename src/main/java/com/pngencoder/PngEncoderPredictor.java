@@ -11,7 +11,8 @@ class PngEncoderPredictor {
     int bytesPerPixel;
 
     public void encodeImage(BufferedImage image, int yStart, int height, OutputStream outputStream) throws IOException {
-        bytesPerPixel = image.getColorModel().hasAlpha() ? 4 : 3;
+        PngEncoderScanlineUtil.EncodingMetaInfo metaInfo = PngEncoderScanlineUtil.getEncodingMetaInfo(image);
+        bytesPerPixel = metaInfo.bytesPerPixel;
         PngEncoderScanlineUtil.stream(image, yStart, height, new AbstractPNGLineConsumer() {
             @Override
             void consume(byte[] currRow, byte[] prevRow) throws IOException {

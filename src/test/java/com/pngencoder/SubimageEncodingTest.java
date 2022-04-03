@@ -2,11 +2,11 @@ package com.pngencoder;
 
 import org.junit.jupiter.api.Test;
 
-import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import javax.imageio.ImageIO;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -20,17 +20,23 @@ public class SubimageEncodingTest {
                 PngEncoderBufferedImageType.TYPE_USHORT_GRAY
         };
 
+        PngEncoder plainCompressor = new PngEncoder().withPredictorEncoding(false).withCompressionLevel(0).withMultiThreadedCompressionEnabled(false);
+        PngEncoder predictorCompressor = plainCompressor.withPredictorEncoding(true);
+        PngEncoder multithreadCompressor = plainCompressor.withMultiThreadedCompressionEnabled(true);
+        PngEncoder multithreadPredictorCompressor = plainCompressor.withMultiThreadedCompressionEnabled(true).withPredictorEncoding(true);
         for (PngEncoderBufferedImageType type : typesToTest) {
             final BufferedImage bufferedImage = PngEncoderTestUtil.createTestImage(type);
-            validateImage(type, bufferedImage);
-            validateImage(type, bufferedImage.getSubimage(10, 10, 50, 50));
+            for (PngEncoder encoder : new PngEncoder[]{plainCompressor, predictorCompressor, multithreadCompressor, multithreadPredictorCompressor}) {
+                validateImage(type, bufferedImage, encoder);
+                validateImage(type, bufferedImage.getSubimage(10, 10, 50, 50), encoder);
+            }
         }
     }
 
-    private void validateImage(PngEncoderBufferedImageType type, BufferedImage image) throws IOException {
+    private void validateImage(PngEncoderBufferedImageType type, BufferedImage image, PngEncoder encoder) throws IOException {
         ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
         ImageIO.write(image, "PNG", outputStream);
-        byte[] imgData2 = new PngEncoder().withBufferedImage(image).toBytes();
+        byte[] imgData2 = encoder.withBufferedImage(image).toBytes();
         BufferedImage img1 = ImageIO.read(new ByteArrayInputStream(outputStream.toByteArray()));
         BufferedImage img2 = ImageIO.read(new ByteArrayInputStream(imgData2));
         assertEquals(img1.getWidth(), img2.getWidth());
