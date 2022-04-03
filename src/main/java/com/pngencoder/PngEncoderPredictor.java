@@ -7,11 +7,8 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.UncheckedIOException;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.zip.Deflater;
-import java.util.zip.DeflaterOutputStream;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 class PngEncoderPredictor {
 
@@ -23,56 +20,59 @@ class PngEncoderPredictor {
         byte[] result;
     }
 
-    public static void encodeImageMultithreaded(BufferedImage image, int compressionLevel, OutputStream outputStream) throws IOException {
+    static void encodeImageMultithreaded(BufferedImage image, PngEncoderScanlineUtil.EncodingMetaInfo metaInfo, OutputStream out) throws IOException {
         int height = image.getHeight();
         int heightPerSlice = height / PngEncoderDeflaterExecutorService.NUM_THREADS_IS_AVAILABLE_PROCESSORS;
 
         /*
          * Schedule all tasks for all segments
          */
-        List<CompletableFuture<CompressionResult>> resultList = new ArrayList<>();
+        ConcurrentLinkedQueue<CompletableFuture<CompressionResult>> resultList = new ConcurrentLinkedQueue<>();
         for (int y = 0; y < height; y += heightPerSlice) {
             final int yStart = y;
             CompletableFuture<CompressionResult> completableFuture = CompletableFuture.supplyAsync(() -> {
                 int heightToProcess = Math.min(heightPerSlice, height - yStart);
+                /*
+                 * We overestimate the buffer we need, to avoid any copy...
+                 */
+                ByteArrayOutputStream outBytes = new ByteArrayOutputStream(heightToProcess * metaInfo.rowByteSize);
 
-                ByteArrayOutputStream outBytes = new ByteArrayOutputStream();
-                Deflater def = PngEncoderDeflaterThreadLocalDeflater.getInstance(compressionLevel);
-                DeflaterOutputStream deflaterOutputStream = new DeflaterOutputStream(outBytes, def);
+                PngEncoderPredictor predictor = new PngEncoderPredictor();
                 try {
-                    PngEncoderPredictor predictor = new PngEncoderPredictor();
-                    predictor.encodeImage(image, yStart, heightToProcess, deflaterOutputStream);
-                    deflaterOutputStream.finish();
-                    deflaterOutputStream.flush();
+                    predictor.encodeImage(image, yStart, heightToProcess, metaInfo, outBytes);
                 } catch (IOException e) {
                     throw new UncheckedIOException(e);
                 }
+
                 CompressionResult result = new CompressionResult();
                 result.yStart = yStart;
                 result.heightToProcess = heightToProcess;
                 result.result = outBytes.toByteArray();
                 return result;
             }, PngEncoderDeflaterExecutorService.getInstance());
-            resultList.add(completableFuture);
+            resultList.offer(completableFuture);
         }
 
         /*
          * Await the result
          */
         int y = 0;
-        for (CompletableFuture<CompressionResult> completableFuture : resultList) {
+        while (true) {
+            CompletableFuture<CompressionResult> completableFuture = resultList.poll();
+            if (completableFuture == null) {
+                break;
+            }
             CompressionResult result = completableFuture.join();
             assert result.yStart == y;
             assert result.heightToProcess <= heightPerSlice;
             assert result.heightToProcess + y <= height;
             y += result.heightToProcess;
-            outputStream.write(result.result);
+            out.write(result.result);
         }
         assert y == height;
     }
 
-    public void encodeImage(BufferedImage image, int yStart, int height, OutputStream outputStream) throws IOException {
-        PngEncoderScanlineUtil.EncodingMetaInfo metaInfo = PngEncoderScanlineUtil.getEncodingMetaInfo(image);
+    void encodeImage(BufferedImage image, int yStart, int height, PngEncoderScanlineUtil.EncodingMetaInfo metaInfo, OutputStream outputStream) throws IOException {
         bytesPerPixel = metaInfo.bytesPerPixel;
         PngEncoderScanlineUtil.stream(image, yStart, height, new AbstractPNGLineConsumer() {
 
