@@ -44,9 +44,17 @@ class PngEncoderScanlineUtil {
     static class EncodingMetaInfo {
         int channels;
         int bytesPerPixel;
+        int bitsPerChannel = 8;
         int rowByteSize;
         boolean hasAlpha;
         ICC_Profile colorProfile;
+
+        enum ColorSpaceType {
+            Rgb,
+            Gray
+        }
+
+        ColorSpaceType colorSpaceType = ColorSpaceType.Rgb;
     }
 
     static EncodingMetaInfo getEncodingMetaInfo(BufferedImage bufferedImage) {
@@ -59,7 +67,9 @@ class PngEncoderScanlineUtil {
             info.colorProfile = ((ICC_ColorSpace) colorSpace).getProfile();
             switch (colorSpace.getType()) {
                 case ColorSpace.TYPE_RGB:
+                    break;
                 case ColorSpace.TYPE_GRAY:
+                    info.colorSpaceType = EncodingMetaInfo.ColorSpaceType.Gray;
                     break;
                 default:
                     needToFallBackTosRGB = true;
@@ -91,6 +101,7 @@ class PngEncoderScanlineUtil {
             case TYPE_USHORT_GRAY:
                 info.channels = 1;
                 info.bytesPerPixel = 2;
+                info.bitsPerChannel = 16;
                 break;
             default:
                 SampleModel sampleModel = bufferedImage.getRaster().getSampleModel();
@@ -113,6 +124,7 @@ class PngEncoderScanlineUtil {
                 if (!needToFallBackTosRGB && bufferedImage.getRaster().getDataBuffer() instanceof DataBufferUShort) {
                     info.channels = sampleModel.getNumBands();
                     info.bytesPerPixel = info.channels * 2;
+                    info.bitsPerChannel = 16;
                 }
                 break;
         }
@@ -448,10 +460,8 @@ class PngEncoderScanlineUtil {
     static void getByteGray(BufferedImage image, int yStart, int width, int height, AbstractPNGLineConsumer consumer)
             throws IOException {
         WritableRaster imageRaster = image.getRaster();
-        float[] convertValue = new float[1];
-        ColorSpace colorSpace = image.getColorModel().getColorSpace();
 
-        final int channels = 3;
+        final int channels = 1;
         final int rowByteSize = 1 + channels * width;
         byte[] currLine = new byte[rowByteSize];
         byte[] prevLine = new byte[rowByteSize];
@@ -468,15 +478,9 @@ class PngEncoderScanlineUtil {
                     - imageRaster.getSampleModelTranslateX() * pixelStride;
             for (int y = yStart; y < height; y++) {
                 int pixelPtr = linePtr;
-                int writePtr = 1;
-                for (int x = 0; x < width; x++) {
-                    byte grayColorValueRaw = rawBytes[pixelPtr++];
-                    convertValue[0] = ((float) (grayColorValueRaw & 0xFF)) / 255f;
-                    byte grayColorValue = (byte) ((int) (colorSpace.toRGB(convertValue)[0] * 255f + 0.5f));
-                    currLine[writePtr++] = grayColorValue;
-                    currLine[writePtr++] = grayColorValue;
-                    currLine[writePtr++] = grayColorValue;
-                }
+
+                System.arraycopy(rawBytes, pixelPtr, currLine, 1, width);
+
                 linePtr += scanlineStride;
                 consumer.consume(currLine, prevLine);
                 {
@@ -492,13 +496,10 @@ class PngEncoderScanlineUtil {
 
     static void getUshortGray(BufferedImage image, int yStart, int width, int height, AbstractPNGLineConsumer consumer)
             throws IOException {
-        System.err.println("WARNING: TYPE_USHORT_GRAY is not really supported. Gamma is very off...");
         WritableRaster imageRaster = image.getRaster();
-        float[] convertValue = new float[1];
-        ColorSpace colorSpace = image.getColorModel().getColorSpace();
 
-        final int channels = 3;
-        final int rowByteSize = 1 + channels * width;
+        final int channels = 1;
+        final int rowByteSize = 1 + channels * width * 2;
         byte[] currLine = new byte[rowByteSize];
         byte[] prevLine = new byte[rowByteSize];
 
@@ -516,12 +517,11 @@ class PngEncoderScanlineUtil {
                 int pixelPtr = linePtr;
                 int writePtr = 1;
                 for (int x = 0; x < width; x++) {
-                    short grayColorValueRaw = rawShorts[pixelPtr++];
-                    convertValue[0] = ((float) (grayColorValueRaw & 0xFFFF)) / 32767.0f;
-                    byte grayColorValue = (byte) (((int) (colorSpace.toRGB(convertValue)[0] * 32767.0f + 0.5f)) >> 8);
-                    currLine[writePtr++] = grayColorValue;
-                    currLine[writePtr++] = grayColorValue;
-                    currLine[writePtr++] = grayColorValue;
+                    short grayColorValue = rawShorts[pixelPtr++];
+                    byte high = (byte) (grayColorValue >> 8);
+                    byte low = (byte) (grayColorValue & 0xff);
+                    currLine[writePtr++] = high;
+                    currLine[writePtr++] = low;
                 }
                 linePtr += scanlineStride;
                 consumer.consume(currLine, prevLine);
