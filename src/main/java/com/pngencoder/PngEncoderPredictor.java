@@ -54,15 +54,13 @@ class PngEncoderPredictor {
                         a = currRow[i - bpp] & 0xFF;
                         c = prevRow[i - bpp] & 0xFF;
                     }
+
                     /*
-                     * Manual inlining of all pngFilters
+                     * PNG Filters, see https://www.w3.org/TR/PNG-Filters.html
                      */
                     byte bSub = (byte) (x - a);
-                    assert bSub == pngFilterSub(x, a);
                     byte bUp = (byte) (x - b);
-                    assert bUp == pngFilterUp(x, b);
                     byte bAverage = (byte) (x - ((b + a) / 2));
-                    assert bAverage == pngFilterAverage(x, a, b);
                     byte bPaeth;
                     {
                         int p = a + b - c;
@@ -80,7 +78,6 @@ class PngEncoderPredictor {
 
                         int r = x - pr;
                         bPaeth = (byte) r;
-                        assert bPaeth == pngFilterPaeth(x, a, b, c);
                     }
 
                     dataRawRowSub[i] = bSub;
@@ -126,42 +123,4 @@ class PngEncoderPredictor {
     private byte[] dataRawRowUp;
     private byte[] dataRawRowAverage;
     private byte[] dataRawRowPaeth;
-
-    /*
-     * PNG Filters, see https://www.w3.org/TR/PNG-Filters.html
-     */
-    private static byte pngFilterSub(int x, int a) {
-        return (byte) ((x) - (a));
-    }
-
-    private static byte pngFilterUp(int x, int b) {
-        // Same as pngFilterSub, just called with the prior row
-        return pngFilterSub(x, b);
-    }
-
-    private static byte pngFilterAverage(int x, int a, int b) {
-        return (byte) (x - ((b + a) / 2));
-    }
-
-    /**
-     * This method describes the algorythm. For performance reasons it has to be inlined in to the innerloop,
-     * as the JVM will not inline this method, as it is to big...
-     */
-    private static byte pngFilterPaeth(int x, int a, int b, int c) {
-        int p = a + b - c;
-        int pa = Math.abs(p - a);
-        int pb = Math.abs(p - b);
-        int pc = Math.abs(p - c);
-        final int pr;
-        if (pa <= pb && pa <= pc) {
-            pr = a;
-        } else if (pb <= pc) {
-            pr = b;
-        } else {
-            pr = c;
-        }
-
-        int r = x - pr;
-        return (byte) (r);
-    }
 }
