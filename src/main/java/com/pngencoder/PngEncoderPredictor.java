@@ -1,12 +1,11 @@
 package com.pngencoder;
 
-import com.pngencoder.PngEncoderScanlineUtil.AbstractPNGLineConsumer;
-
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.io.UncheckedIOException;
+
+import com.pngencoder.PngEncoderScanlineUtil.AbstractPNGLineConsumer;
 
 class PngEncoderPredictor {
 
@@ -22,16 +21,8 @@ class PngEncoderPredictor {
         ByteArrayOutputStream outBytes = new ByteArrayOutputStream(heightPerSlice * metaInfo.rowByteSize);
         for (int y = 0; y < height; y += heightPerSlice) {
             int heightToProcess = Math.min(heightPerSlice, height - y);
-            /*
-             * We overestimate the buffer we need, to avoid any copy...
-             */
-            try {
-                PngEncoderPredictor predictor = new PngEncoderPredictor();
-                predictor.encodeImage(image, y, heightToProcess, metaInfo, outBytes);
-            } catch (IOException e) {
-                throw new UncheckedIOException(e);
-            }
-
+            PngEncoderPredictor predictor = new PngEncoderPredictor();
+            predictor.encodeImage(image, y, heightToProcess, metaInfo, outBytes);
             outBytes.writeTo(out);
             outBytes.reset();
         }
