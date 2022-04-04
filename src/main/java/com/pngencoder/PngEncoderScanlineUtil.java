@@ -5,6 +5,7 @@ import java.awt.color.ColorSpace;
 import java.awt.color.ICC_ColorSpace;
 import java.awt.color.ICC_Profile;
 import java.awt.image.BufferedImage;
+import java.awt.image.DataBuffer;
 import java.awt.image.DataBufferByte;
 import java.awt.image.DataBufferInt;
 import java.awt.image.DataBufferUShort;
@@ -121,7 +122,7 @@ class PngEncoderScanlineUtil {
                 /*
                  * When it is a UShort GRAY or RGB buffer we can write it as 16 bit image.
                  */
-                if (!needToFallBackTosRGB && bufferedImage.getRaster().getDataBuffer() instanceof DataBufferUShort) {
+                if (!needToFallBackTosRGB && bufferedImage.getRaster().getDataBuffer().getDataType() == DataBuffer.TYPE_USHORT) {
                     info.channels = sampleModel.getNumBands();
                     info.bytesPerPixel = info.channels * 2;
                     info.bitsPerChannel = 16;
@@ -178,6 +179,23 @@ class PngEncoderScanlineUtil {
                 getUshortGray(bufferedImage, yStart, width, heightToStream, consumer);
                 break;
             default:
+                if (raster.getDataBuffer() instanceof DataBufferUShort) {
+                    if (getUshortGenericDataBufferUShort(bufferedImage, yStart, width, heightToStream, consumer)) {
+                        break;
+                    }
+                }
+                // Generic DataBuffer variants.
+                if (raster.getDataBuffer().getDataType() == DataBuffer.TYPE_USHORT) {
+                    if (getUshortGeneric(bufferedImage, yStart, width, heightToStream, consumer)) {
+                        break;
+                    }
+                }
+                if (raster.getDataBuffer().getDataType() == DataBuffer.TYPE_BYTE) {
+                    if (getByteGeneric(bufferedImage, yStart, width, heightToStream, consumer)) {
+                        break;
+                    }
+                }
+
                 // Fallback for unsupported type.
                 final int[] elements = bufferedImage.getRGB(0, yStart, width, heightToStream, null, 0, width);
                 if (bufferedImage.getTransparency() == Transparency.OPAQUE) {
@@ -185,6 +203,7 @@ class PngEncoderScanlineUtil {
                 } else {
                     getIntArgb(elements, yStart, width, heightToStream, consumer);
                 }
+                break;
         }
     }
 
@@ -535,5 +554,137 @@ class PngEncoderScanlineUtil {
         } else {
             throw new IllegalStateException("TYPE_USHORT_GRAY must have a PixelInterleavedSampleModel");
         }
+    }
+
+
+    static boolean getUshortGenericDataBufferUShort(BufferedImage image, int yStart, int width, int heightToStream, AbstractPNGLineConsumer consumer)
+            throws IOException {
+        WritableRaster imageRaster = image.getRaster();
+
+        DataBufferUShort dataBufferUShort = (DataBufferUShort) imageRaster.getDataBuffer();
+        final int channels = imageRaster.getSampleModel().getNumBands();
+        final int rowByteSize = 1 + channels * width * 2;
+        byte[] currLine = new byte[rowByteSize];
+        byte[] prevLine = new byte[rowByteSize];
+
+        if (imageRaster.getSampleModel() instanceof PixelInterleavedSampleModel) {
+            PixelInterleavedSampleModel sampleModel = (PixelInterleavedSampleModel) imageRaster.getSampleModel();
+            short[] rawShorts = dataBufferUShort.getData();
+            int scanlineStride = sampleModel.getScanlineStride();
+            int pixelStride = sampleModel.getPixelStride();
+            assert pixelStride == channels;
+
+            int linePtr = scanlineStride * (yStart - imageRaster.getSampleModelTranslateY())
+                    - imageRaster.getSampleModelTranslateX() * pixelStride;
+            for (int y = 0; y < heightToStream; y++) {
+                int pixelPtr = linePtr;
+                int writePtr = 1;
+                for (int x = 0; x < width; x++) {
+                    for (int inPixelPtr = 0; inPixelPtr < channels; inPixelPtr++) {
+                        short colorValue = rawShorts[pixelPtr++];
+                        byte high = (byte) (colorValue >> 8);
+                        byte low = (byte) (colorValue & 0xff);
+                        currLine[writePtr++] = high;
+                        currLine[writePtr++] = low;
+                    }
+                }
+                linePtr += scanlineStride;
+                consumer.consume(currLine, prevLine);
+                {
+                    byte[] b = currLine;
+                    currLine = prevLine;
+                    prevLine = b;
+                }
+            }
+            return true;
+        }
+        return false;
+    }
+
+    static boolean getUshortGeneric(BufferedImage image, int yStart, int width, int heightToStream, AbstractPNGLineConsumer consumer)
+            throws IOException {
+        WritableRaster imageRaster = image.getRaster();
+
+        final int channels = imageRaster.getSampleModel().getNumBands();
+        final int rowByteSize = 1 + channels * width * 2;
+        byte[] currLine = new byte[rowByteSize];
+        byte[] prevLine = new byte[rowByteSize];
+
+        if (imageRaster.getSampleModel() instanceof PixelInterleavedSampleModel) {
+            PixelInterleavedSampleModel sampleModel = (PixelInterleavedSampleModel) imageRaster.getSampleModel();
+            DataBuffer dataBuffer = imageRaster.getDataBuffer();
+            int numBanks = dataBuffer.getNumBanks();
+            int scanlineStride = sampleModel.getScanlineStride();
+            int pixelStride = sampleModel.getPixelStride();
+            assert pixelStride == channels;
+            assert numBanks == 1;
+
+            int linePtr = scanlineStride * (yStart - imageRaster.getSampleModelTranslateY())
+                    - imageRaster.getSampleModelTranslateX() * pixelStride;
+            for (int y = 0; y < heightToStream; y++) {
+                int pixelPtr = linePtr;
+                int writePtr = 1;
+                for (int x = 0; x < width; x++) {
+                    for (int bankNum = 0; bankNum < channels; bankNum++) {
+                        short colorValue = (short) (dataBuffer.getElem(pixelPtr++) & 0xFFFF);
+                        byte high = (byte) (colorValue >> 8);
+                        byte low = (byte) (colorValue & 0xff);
+                        currLine[writePtr++] = high;
+                        currLine[writePtr++] = low;
+                    }
+                }
+                linePtr += scanlineStride;
+                consumer.consume(currLine, prevLine);
+                {
+                    byte[] b = currLine;
+                    currLine = prevLine;
+                    prevLine = b;
+                }
+            }
+            return true;
+        }
+        return false;
+    }
+
+    static boolean getByteGeneric(BufferedImage image, int yStart, int width, int heightToStream, AbstractPNGLineConsumer consumer)
+            throws IOException {
+        WritableRaster imageRaster = image.getRaster();
+
+        final int channels = imageRaster.getSampleModel().getNumBands();
+        final int rowByteSize = 1 + channels * width;
+        byte[] currLine = new byte[rowByteSize];
+        byte[] prevLine = new byte[rowByteSize];
+
+        if (imageRaster.getSampleModel() instanceof PixelInterleavedSampleModel) {
+            PixelInterleavedSampleModel sampleModel = (PixelInterleavedSampleModel) imageRaster.getSampleModel();
+            DataBuffer dataBuffer = imageRaster.getDataBuffer();
+            int numBanks = dataBuffer.getNumBanks();
+            int scanlineStride = sampleModel.getScanlineStride();
+            int pixelStride = sampleModel.getPixelStride();
+            assert pixelStride == channels;
+            assert numBanks == 1;
+
+            int linePtr = scanlineStride * (yStart - imageRaster.getSampleModelTranslateY())
+                    - imageRaster.getSampleModelTranslateX() * pixelStride;
+            for (int y = 0; y < heightToStream; y++) {
+                int pixelPtr = linePtr;
+                int writePtr = 1;
+                for (int x = 0; x < width; x++) {
+                    for (int bankNum = 0; bankNum < channels; bankNum++) {
+                        byte colorValue = (byte) (dataBuffer.getElem(pixelPtr++) & 0xFF);
+                        currLine[writePtr++] = colorValue;
+                    }
+                }
+                linePtr += scanlineStride;
+                consumer.consume(currLine, prevLine);
+                {
+                    byte[] b = currLine;
+                    currLine = prevLine;
+                    prevLine = b;
+                }
+            }
+            return true;
+        }
+        return false;
     }
 }
