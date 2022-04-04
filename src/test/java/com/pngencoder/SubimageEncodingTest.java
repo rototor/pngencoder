@@ -15,6 +15,7 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.Hashtable;
+import java.util.Objects;
 import javax.imageio.ImageIO;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -55,6 +56,18 @@ public class SubimageEncodingTest {
     public void testUShortCustom() throws IOException {
         final BufferedImage sourceImage = PngEncoderTestUtil.createTestImage(PngEncoderBufferedImageType.TYPE_4BYTE_ABGR);
         BufferedImage imgRGBA = CustomDataBuffers.create16BitRGBA(sourceImage.getWidth(), sourceImage.getHeight());
+        Graphics2D graphics = imgRGBA.createGraphics();
+        graphics.drawImage(sourceImage, 0, 0, null);
+        graphics.dispose();
+        testImageEncoders(PngEncoderBufferedImageType.TYPE_CUSTOM, imgRGBA);
+    }
+
+    @Test
+    public void testIntCustom() throws IOException {
+        //final BufferedImage sourceImage = PngEncoderTestUtil.createTestImage(PngEncoderBufferedImageType.TYPE_INT_ARGB);
+        final BufferedImage sourceImage = ImageIO
+                .read(Objects.requireNonNull(PngEncoderTest.class.getResourceAsStream("/png-encoder-logo.png")));
+        BufferedImage imgRGBA = CustomDataBuffers.createInt8BitRGBA(sourceImage.getWidth(), sourceImage.getHeight());
         Graphics2D graphics = imgRGBA.createGraphics();
         graphics.drawImage(sourceImage, 0, 0, null);
         graphics.dispose();

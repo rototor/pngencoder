@@ -85,6 +85,18 @@ public class PngEncoderScanlineUtilTest {
         assertThat(actual.length * 2 - sourceImage.getHeight(), is(expected.length));
     }
 
+    @Test
+    public void testCustomIntRGBA() throws IOException {
+        final BufferedImage sourceImage = PngEncoderTestUtil.createTestImage(PngEncoderBufferedImageType.TYPE_4BYTE_ABGR);
+        BufferedImage imgRGBA = CustomDataBuffers.createInt8BitRGBA(sourceImage.getWidth(), sourceImage.getHeight());
+        Graphics2D graphics = imgRGBA.createGraphics();
+        graphics.drawImage(sourceImage, 0, 0, null);
+        graphics.dispose();
+        final byte[] actual = PngEncoderScanlineUtil.get(sourceImage);
+        final byte[] expected = PngEncoderScanlineUtil.get(imgRGBA);
+        assertThat(actual, is(expected));
+    }
+
     private void assertThatScanlineOfTestImageEqualsIntRgbOrArgb(PngEncoderBufferedImageType type, boolean alpha) throws IOException {
         final BufferedImage bufferedImage = PngEncoderTestUtil.createTestImage(type);
         final BufferedImage bufferedImageEnsured = PngEncoderBufferedImageConverter.ensureType(bufferedImage, alpha ? PngEncoderBufferedImageType.TYPE_INT_ARGB : PngEncoderBufferedImageType.TYPE_INT_RGB);

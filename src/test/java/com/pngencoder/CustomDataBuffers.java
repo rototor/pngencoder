@@ -6,10 +6,13 @@ import java.awt.image.BufferedImage;
 import java.awt.image.ColorModel;
 import java.awt.image.ComponentColorModel;
 import java.awt.image.DataBuffer;
+import java.awt.image.DirectColorModel;
 import java.awt.image.PixelInterleavedSampleModel;
 import java.awt.image.SampleModel;
+import java.awt.image.SinglePixelPackedSampleModel;
 import java.awt.image.WritableRaster;
 import java.nio.ByteBuffer;
+import java.nio.IntBuffer;
 import java.nio.ShortBuffer;
 
 class CustomDataBuffers {
@@ -37,7 +40,7 @@ class CustomDataBuffers {
 
         protected CustomShortBuffer(int size, final int numBanks) {
             super(DataBuffer.TYPE_USHORT, size, numBanks);
-            buffer = ShortBuffer.allocate(size * numBanks);
+            buffer = ByteBuffer.allocateDirect(size * numBanks * 2).asShortBuffer();
         }
 
         @Override
@@ -48,6 +51,25 @@ class CustomDataBuffers {
         @Override
         public void setElem(int bank, int i, int val) {
             buffer.put(bank * size + i, (short) (val & 0xFFFF));
+        }
+    }
+
+    static class CustomIntBuffer extends DataBuffer {
+        IntBuffer buffer;
+
+        protected CustomIntBuffer(int size, final int numBanks) {
+            super(DataBuffer.TYPE_INT, size, numBanks);
+            buffer = ByteBuffer.allocateDirect(size * numBanks * 4).asIntBuffer();
+        }
+
+        @Override
+        public int getElem(int bank, int i) {
+            return buffer.get(bank * size + i);
+        }
+
+        @Override
+        public void setElem(int bank, int i, int val) {
+            buffer.put(bank * size + i, val);
         }
     }
 
@@ -74,6 +96,9 @@ class CustomDataBuffers {
             case DataBuffer.TYPE_USHORT:
                 buffer = new CustomDataBuffers.CustomShortBuffer(width * height * sm.getNumDataElements(), 1);
                 break;
+            case DataBuffer.TYPE_INT:
+                buffer = new CustomDataBuffers.CustomIntBuffer(width * height, 1);
+                break;
             default:
                 throw new RuntimeException("Not implemented!");
         }
@@ -92,6 +117,14 @@ class CustomDataBuffers {
         PixelInterleavedSampleModel model = new PixelInterleavedSampleModel(DataBuffer.TYPE_USHORT, width, height, 4, 4 * width, new int[]{0, 1, 2, 3});
         final ColorModel colorModel = new ComponentColorModel(colorSpace, true, false,
                 ColorModel.TRANSLUCENT, DataBuffer.TYPE_USHORT);
+        return createCompatibleImage(width, height, model, colorModel);
+    }
+
+    static BufferedImage createInt8BitRGBA(int width, int height) {
+        ColorSpace colorSpace = ColorModel.getRGBdefault().getColorSpace();
+        final DirectColorModel colorModel = (DirectColorModel) ColorModel.getRGBdefault();
+
+        SinglePixelPackedSampleModel model = new SinglePixelPackedSampleModel(DataBuffer.TYPE_INT, width, height, colorModel.getMasks());
         return createCompatibleImage(width, height, model, colorModel);
     }
 }

@@ -105,6 +105,7 @@ class PngEncoderScanlineUtil {
                 info.bitsPerChannel = 16;
                 break;
             default:
+                boolean canICCBeHandled = false;
                 SampleModel sampleModel = bufferedImage.getRaster().getSampleModel();
                 info.hasAlpha = bufferedImage.getTransparency() != Transparency.OPAQUE;
 
@@ -126,6 +127,21 @@ class PngEncoderScanlineUtil {
                     info.channels = sampleModel.getNumBands();
                     info.bytesPerPixel = info.channels * 2;
                     info.bitsPerChannel = 16;
+                    canICCBeHandled = true;
+                }
+                /*
+                 * Custom Int Buffers storing 8 bit RGB
+                 */
+                if (!needToFallBackTosRGB && bufferedImage.getRaster().getDataBuffer().getDataType() == DataBuffer.TYPE_INT
+                        && bufferedImage.getSampleModel().getSampleSize(0) == 8) {
+                    canICCBeHandled = true;
+                }
+
+                /*
+                 * When we can not handle the data buffer we have to fallback to sRGB. So we should not include a color profile
+                 */
+                if (!canICCBeHandled) {
+                    info.colorProfile = null;
                 }
                 break;
         }
@@ -192,6 +208,11 @@ class PngEncoderScanlineUtil {
                 }
                 if (raster.getDataBuffer().getDataType() == DataBuffer.TYPE_BYTE) {
                     if (getByteGeneric(bufferedImage, yStart, width, heightToStream, consumer)) {
+                        break;
+                    }
+                }
+                if (raster.getDataBuffer().getDataType() == DataBuffer.TYPE_INT) {
+                    if (getIntGeneric(bufferedImage, yStart, width, heightToStream, consumer)) {
                         break;
                     }
                 }
@@ -673,6 +694,50 @@ class PngEncoderScanlineUtil {
                     for (int bankNum = 0; bankNum < channels; bankNum++) {
                         byte colorValue = (byte) (dataBuffer.getElem(pixelPtr++) & 0xFF);
                         currLine[writePtr++] = colorValue;
+                    }
+                }
+                linePtr += scanlineStride;
+                consumer.consume(currLine, prevLine);
+                {
+                    byte[] b = currLine;
+                    currLine = prevLine;
+                    prevLine = b;
+                }
+            }
+            return true;
+        }
+        return false;
+    }
+
+
+    static boolean getIntGeneric(BufferedImage image, int yStart, int width, int heightToStream, AbstractPNGLineConsumer consumer)
+            throws IOException {
+        WritableRaster imageRaster = image.getRaster();
+
+        final int channels = imageRaster.getSampleModel().getNumBands();
+        final int rowByteSize = 1 + channels * width;
+        byte[] currLine = new byte[rowByteSize];
+        byte[] prevLine = new byte[rowByteSize];
+
+        if (imageRaster.getSampleModel() instanceof SinglePixelPackedSampleModel) {
+            SinglePixelPackedSampleModel sampleModel = (SinglePixelPackedSampleModel) imageRaster.getSampleModel();
+            DataBuffer dataBuffer = imageRaster.getDataBuffer();
+            int numBanks = dataBuffer.getNumBanks();
+            int scanlineStride = sampleModel.getScanlineStride();
+            int[] bitOffsets = sampleModel.getBitOffsets();
+            int[] bitMasks = sampleModel.getBitMasks();
+            assert numBanks == 1;
+
+            int linePtr = scanlineStride * (yStart - imageRaster.getSampleModelTranslateY())
+                    - imageRaster.getSampleModelTranslateX();
+            for (int y = 0; y < heightToStream; y++) {
+                int pixelPtr = linePtr;
+                int writePtr = 1;
+                for (int x = 0; x < width; x++) {
+                    int colorValue = dataBuffer.getElem(pixelPtr++);
+                    for (int i = 0; i < bitOffsets.length; i++) {
+                        int v = (colorValue & bitMasks[i]) >> bitOffsets[i];
+                        currLine[writePtr++] = (byte) (v & 0xFF);
                     }
                 }
                 linePtr += scanlineStride;
