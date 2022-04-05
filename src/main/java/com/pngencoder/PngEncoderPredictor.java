@@ -47,14 +47,17 @@ class PngEncoderPredictor {
         dataRawRowAverage[0] = 3;
         dataRawRowPaeth[0] = 4;
 
-        PngEncoderScanlineUtil.stream(image, yStart, height, new AbstractPNGLineConsumer() {
-            /*
-             * If we slice the data we have to skip the first row.
-             */
-            boolean skipNextRow = yStart > 0;
+        boolean redoFirstRow = yStart > 0;
+        PngEncoderScanlineUtil.stream(image, redoFirstRow ? (yStart - 1) : yStart, height + (redoFirstRow ? 1 : 0), new AbstractPNGLineConsumer() {
+            boolean skipFirstRow = redoFirstRow;
 
             @Override
             void consume(byte[] currRow, byte[] prevRow) throws IOException {
+                if (skipFirstRow) {
+                    skipFirstRow = false;
+                    return;
+                }
+
                 int bpp = metaInfo.bytesPerPixel;
                 @SuppressWarnings("UnnecessaryLocalVariable")
                 byte[] dataRawRowNone = currRow;
@@ -62,15 +65,6 @@ class PngEncoderPredictor {
                 byte[] dataRawRowUp = PngEncoderPredictor.this.dataRawRowUp;
                 byte[] dataRawRowAverage = PngEncoderPredictor.this.dataRawRowAverage;
                 byte[] dataRawRowPaeth = PngEncoderPredictor.this.dataRawRowPaeth;
-
-                if (skipNextRow) {
-                    skipNextRow = false;
-                    /*
-                     * We don't do any predictor encoding here, as we don't have the prev row.
-                     */
-                    outputStream.write(dataRawRowNone);
-                    return;
-                }
 
                 // c | b
                 // -----
