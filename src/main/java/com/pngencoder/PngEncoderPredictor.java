@@ -1,17 +1,17 @@
 package com.pngencoder;
 
+import com.pngencoder.PngEncoderScanlineUtil.AbstractPNGLineConsumer;
+
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 
-import com.pngencoder.PngEncoderScanlineUtil.AbstractPNGLineConsumer;
-
 class PngEncoderPredictor {
 
-    int bytesPerPixel;
 
-    static void encodeImageMultithreaded(BufferedImage image, PngEncoderScanlineUtil.EncodingMetaInfo metaInfo, OutputStream out) throws IOException {
+    static void encodeImageMultiThreaded(BufferedImage image, PngEncoderScanlineUtil.EncodingMetaInfo metaInfo, OutputStream out) throws IOException {
+
         int height = image.getHeight();
         int heightPerSlice = Math.max(10, PngEncoderDeflaterOutputStream.SEGMENT_MAX_LENGTH_ORIGINAL_MIN / metaInfo.rowByteSize) + 1;
 
@@ -21,37 +21,55 @@ class PngEncoderPredictor {
         ByteArrayOutputStream outBytes = new ByteArrayOutputStream(heightPerSlice * metaInfo.rowByteSize);
         for (int y = 0; y < height; y += heightPerSlice) {
             int heightToProcess = Math.min(heightPerSlice, height - y);
-            PngEncoderPredictor predictor = new PngEncoderPredictor();
-            predictor.encodeImage(image, y, heightToProcess, metaInfo, outBytes);
+            new PngEncoderPredictor().encodeImage(image, y, heightToProcess, metaInfo, outBytes);
             outBytes.writeTo(out);
             outBytes.reset();
         }
     }
 
-    void encodeImage(BufferedImage image, int yStart, int height, PngEncoderScanlineUtil.EncodingMetaInfo metaInfo, OutputStream outputStream) throws IOException {
-        bytesPerPixel = metaInfo.bytesPerPixel;
+    static void encodeImageSingleThreaded(BufferedImage image, PngEncoderScanlineUtil.EncodingMetaInfo metaInfo, OutputStream outputStream) throws IOException {
+        new PngEncoderPredictor().encodeImage(image, 0, image.getHeight(), metaInfo, outputStream);
+    }
+
+    private byte[] dataRawRowSub;
+    private byte[] dataRawRowUp;
+    private byte[] dataRawRowAverage;
+    private byte[] dataRawRowPaeth;
+
+    private void encodeImage(BufferedImage image, int yStart, int height, PngEncoderScanlineUtil.EncodingMetaInfo metaInfo, OutputStream outputStream) throws IOException {
+        dataRawRowSub = new byte[metaInfo.rowByteSize];
+        dataRawRowUp = new byte[metaInfo.rowByteSize];
+        dataRawRowAverage = new byte[metaInfo.rowByteSize];
+        dataRawRowPaeth = new byte[metaInfo.rowByteSize];
+
+        dataRawRowSub[0] = 1;
+        dataRawRowUp[0] = 2;
+        dataRawRowAverage[0] = 3;
+        dataRawRowPaeth[0] = 4;
+
         PngEncoderScanlineUtil.stream(image, yStart, height, new AbstractPNGLineConsumer() {
+            /*
+             * If we slice the data we have to skip the first row.
+             */
+            boolean skipNextRow = yStart > 0;
 
             @Override
             void consume(byte[] currRow, byte[] prevRow) throws IOException {
-                dataRawRowNone = currRow;
-                if (dataRawRowSub == null) {
-                    dataRawRowSub = new byte[currRow.length];
-                    dataRawRowUp = new byte[currRow.length];
-                    dataRawRowAverage = new byte[currRow.length];
-                    dataRawRowPaeth = new byte[currRow.length];
+                int bpp = metaInfo.bytesPerPixel;
+                @SuppressWarnings("UnnecessaryLocalVariable")
+                byte[] dataRawRowNone = currRow;
+                byte[] dataRawRowSub = PngEncoderPredictor.this.dataRawRowSub;
+                byte[] dataRawRowUp = PngEncoderPredictor.this.dataRawRowUp;
+                byte[] dataRawRowAverage = PngEncoderPredictor.this.dataRawRowAverage;
+                byte[] dataRawRowPaeth = PngEncoderPredictor.this.dataRawRowPaeth;
 
-                    dataRawRowSub[0] = 1;
-                    dataRawRowUp[0] = 2;
-                    dataRawRowAverage[0] = 3;
-                    dataRawRowPaeth[0] = 4;
-                    if (yStart > 0) {
-                        /*
-                         * We don't do any predictor encoding here, as we don't have the prev row.
-                         */
-                        outputStream.write(dataRawRowNone);
-                        return;
-                    }
+                if (skipNextRow) {
+                    skipNextRow = false;
+                    /*
+                     * We don't do any predictor encoding here, as we don't have the prev row.
+                     */
+                    outputStream.write(dataRawRowNone);
+                    return;
                 }
 
                 // c | b
@@ -70,7 +88,6 @@ class PngEncoderPredictor {
                 long estCompressSumAvg = 3;     // Marker 3 for average predictor
                 long estCompressSumPaeth = 4;   // Marker 4 for paeth predictor
 
-                int bpp = bytesPerPixel;
                 int a = 0;
                 int c = 0;
                 for (int i = 1; i < bLen; i++) {
@@ -143,10 +160,4 @@ class PngEncoderPredictor {
             }
         });
     }
-
-    private byte[] dataRawRowNone;
-    private byte[] dataRawRowSub;
-    private byte[] dataRawRowUp;
-    private byte[] dataRawRowAverage;
-    private byte[] dataRawRowPaeth;
 }
