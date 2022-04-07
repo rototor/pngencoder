@@ -8,7 +8,8 @@ import java.io.IOException;
 import java.io.OutputStream;
 
 class PngEncoderPredictor {
-
+    private PngEncoderPredictor() {
+    }
 
     static void encodeImageMultiThreaded(BufferedImage image, PngEncoderScanlineUtil.EncodingMetaInfo metaInfo, OutputStream out) throws IOException {
 
@@ -16,7 +17,8 @@ class PngEncoderPredictor {
         int heightPerSlice = Math.max(10, PngEncoderDeflaterOutputStream.SEGMENT_MAX_LENGTH_ORIGINAL_MIN / metaInfo.rowByteSize) + 1;
 
         /*
-         * Schedule all tasks for all segments
+         * Encode the image in slices, so that we can stream some image rows into the CPU cache, and then
+         * get them distributed to the ZIP threads without thrashing the cache to much.
          */
         ByteArrayOutputStream outBytes = new ByteArrayOutputStream(heightPerSlice * metaInfo.rowByteSize);
         for (int y = 0; y < height; y += heightPerSlice) {
@@ -88,8 +90,9 @@ class PngEncoderPredictor {
                     int x = currRow[i] & 0xFF;
                     int b = prevRow[i] & 0xFF;
                     if (i > bpp) {
-                        a = currRow[i - bpp] & 0xFF;
-                        c = prevRow[i - bpp] & 0xFF;
+                        int prevPixelByte = i - bpp;
+                        a = currRow[prevPixelByte] & 0xFF;
+                        c = prevRow[prevPixelByte] & 0xFF;
                     }
 
                     /*
@@ -130,7 +133,7 @@ class PngEncoderPredictor {
                 }
 
                 /*
-                 * Choose which row to writer
+                 * Choose which row to write
                  * https://www.w3.org/TR/PNG-Encoders.html#E.Filter-selection
                  */
                 byte[] rowToWrite = dataRawRowNone;

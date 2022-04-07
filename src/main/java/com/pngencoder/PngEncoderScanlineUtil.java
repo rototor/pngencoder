@@ -23,11 +23,32 @@ class PngEncoderScanlineUtil {
      * Consumer for the image rows as bytes. Every row has the predictor marker as
      * first byte (with 0 for no predictor encoding), after that all image bytes
      * follow.
+     * <p>
+     * This is a class and not an interface for performance reasons. So that the JVM can
+     * fall back to simple vtable call in the polymorphic call site. As you can read on
+     * <a href="https://wiki.openjdk.java.net/display/HotSpot/InterfaceCalls">https://wiki.openjdk.java.net/display/HotSpot/InterfaceCalls</a>
+     * interface calls are very expensive and not suitable for performance critical sites, which can
+     * be polymorphic.
      */
     static abstract class AbstractPNGLineConsumer {
+        /**
+         * Consume and encode a row bytes consisting of image bytes.
+         *
+         * @param currRow the current row which should be encoded in the image stream
+         * @param prevRow the previous row, which is required for predictor encoding.
+         *                Is complete filled with 0 when encoding the first row.
+         * @throws IOException if some IO error happens
+         */
         abstract void consume(byte[] currRow, byte[] prevRow) throws IOException;
     }
 
+    /**
+     * Consumer getting everything as big byte array. Only used to implement get().
+     * <p>
+     * This thrashes the CPU cache, as with bigger images the whole image data will
+     * not fit into the cache and has to be fetched again from main memory when future
+     * processing the data.
+     */
     static class ByteBufferPNGLineConsumer extends AbstractPNGLineConsumer {
         byte[] bytes;
         int currentOffset;
@@ -42,12 +63,35 @@ class PngEncoderScanlineUtil {
         }
     }
 
+    /**
+     * Metadata about how the image has to be encoded.
+     */
     static class EncodingMetaInfo {
+        /**
+         * Count of color channels. Can either be 1 (for gray),
+         */
         int channels;
+        /**
+         * Of how many bytes does a pixel have? This is needed for the predictor.
+         */
         int bytesPerPixel;
+        /**
+         * Bits per channel, can be 8 or 16
+         */
         int bitsPerChannel = 8;
+        /**
+         * Size of a row consumed by AbstractPNGLineConsumer::consume() including a
+         * 1 byte marker for the predictor.
+         */
         int rowByteSize;
+        /**
+         * Do we have a alpha channel?
+         */
         boolean hasAlpha;
+        /**
+         * If not null we must embed this color profile in the PNG file.
+         * It can only be null for sRGB images.
+         */
         ICC_Profile colorProfile;
 
         enum ColorSpaceType {
@@ -55,14 +99,21 @@ class PngEncoderScanlineUtil {
             Gray
         }
 
+        /**
+         * The kind of color space used in the image
+         */
         ColorSpaceType colorSpaceType = ColorSpaceType.Rgb;
     }
 
+    /*
+     * Get the encoding metadata
+     */
     static EncodingMetaInfo getEncodingMetaInfo(BufferedImage bufferedImage) {
         EncodingMetaInfo info = new EncodingMetaInfo();
         int width = bufferedImage.getWidth();
         final PngEncoderBufferedImageType type = PngEncoderBufferedImageType.valueOf(bufferedImage);
         ColorSpace colorSpace = bufferedImage.getColorModel().getColorSpace();
+
         boolean needToFallBackTosRGB = false;
         if (!colorSpace.isCS_sRGB() && colorSpace instanceof ICC_ColorSpace) {
             info.colorProfile = ((ICC_ColorSpace) colorSpace).getProfile();
@@ -73,6 +124,10 @@ class PngEncoderScanlineUtil {
                     info.colorSpaceType = EncodingMetaInfo.ColorSpaceType.Gray;
                     break;
                 default:
+                    /*
+                     * We can only handle RGB and GRAY in png. CMYK etc. is not in the
+                     * spec...
+                     */
                     needToFallBackTosRGB = true;
                     break;
             }
@@ -138,7 +193,7 @@ class PngEncoderScanlineUtil {
                 }
 
                 /*
-                 * When we can not handle the data buffer we have to fallback to sRGB. So we should not include a color profile
+                 * When we can not handle the data buffer we have to fall back to sRGB. So we should not include a color profile
                  */
                 if (!canICCBeHandled) {
                     info.colorProfile = null;
@@ -158,6 +213,9 @@ class PngEncoderScanlineUtil {
         return consumer.bytes;
     }
 
+    /**
+     * Stream image rows to a consumer, row by row.
+     */
     static void stream(BufferedImage bufferedImage, int yStart, int heightToStream, AbstractPNGLineConsumer consumer)
             throws IOException {
         final int width = bufferedImage.getWidth();

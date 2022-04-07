@@ -64,7 +64,6 @@ public class SubimageEncodingTest {
 
     @Test
     public void testIntCustom() throws IOException {
-        //final BufferedImage sourceImage = PngEncoderTestUtil.createTestImage(PngEncoderBufferedImageType.TYPE_INT_ARGB);
         final BufferedImage sourceImage = ImageIO
                 .read(Objects.requireNonNull(PngEncoderTest.class.getResourceAsStream("/png-encoder-logo.png")));
         BufferedImage imgRGBA = CustomDataBuffers.createInt8BitRGBA(sourceImage.getWidth(), sourceImage.getHeight());
