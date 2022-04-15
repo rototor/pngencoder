@@ -89,6 +89,19 @@ public class PngEncoderScanlineUtilTest {
         final BufferedImage bufferedImageEnsured = PngEncoderBufferedImageConverter.ensureType(bufferedImage, alpha ? PngEncoderBufferedImageType.TYPE_INT_ARGB : PngEncoderBufferedImageType.TYPE_INT_RGB);
         final byte[] actual = PngEncoderScanlineUtil.get(bufferedImage);
         final byte[] expected = PngEncoderScanlineUtil.get(bufferedImageEnsured);
-        assertThat(actual, is(expected));
+        assertThat(actual.length, is(expected.length));
+
+        try {
+            assertThat(actual, is(expected));
+        } catch (AssertionError e) {
+            for (int i = 0; i < actual.length; i++) {
+                byte actualValue = actual[i];
+                byte expectedValue = expected[i];
+
+                assertThat("Actual " + Integer.toHexString(actualValue & 0xFF) + " != " + Integer.toHexString(expectedValue & 0xFF) + " at index "
+                        + i, actual, is(expected));
+            }
+            throw e;
+        }
     }
 }
