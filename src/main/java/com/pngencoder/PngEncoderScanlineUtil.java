@@ -96,7 +96,8 @@ class PngEncoderScanlineUtil {
 
         enum ColorSpaceType {
             Rgb,
-            Gray
+            Gray,
+            Indexed
         }
 
         /**
